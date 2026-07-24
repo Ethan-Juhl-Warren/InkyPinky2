@@ -16,7 +16,7 @@ Registry :: struct($T: typeid) {
 	free_item: proc(^T),
 }
 
-init_registry :: proc(registry: ^Registry($T), free_item: proc(^T) = proc(item: ^T) {}) {
+init_registry :: proc(registry: ^Registry($T), free_item: proc(^T)) {
 	assert(registry != nil, "init_registry: cannot init null, must allocate registry")
 	assert(free_item != nil, "init_registry: cannot supply nil free procudure leave default")
 	registry.items = make([dynamic]T)
@@ -46,7 +46,7 @@ get_registry_item :: proc(registry: ^Registry($T), item_id: RegistryId) -> (^T, 
 	}
 	index, present := registry.slot_of[item_id]
 	if !present {
-		return nil, error.ErrorCode.REGISTRY_ITEM_NOT_FOUND
+		return nil, error.ErrorCode.OBJECT_NOT_FOUND,
 	}
 	return &registry.items[index], error.ErrorCode.NONE
 }
@@ -69,7 +69,7 @@ remove_registry_item :: proc(registry: ^Registry($T), item_id: RegistryId) -> er
 	}
 	index, present := registry.slot_of[item_id]
 	if !present {
-		return error.ErrorCode.REGISTRY_ITEM_NOT_FOUND
+		return error.ErrorCode.OBJECT_NOT_FOUND,
 	}
 
 	registry.free_item(&registry.items[index])

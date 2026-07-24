@@ -59,7 +59,7 @@ new_entity :: proc(entity_id: EntityId) -> error.ErrorCode {
 get_entity_by_name :: proc(name: string) -> (EntityId, error.ErrorCode) {
 	enity, valid := entity_manager.entity_names[name]
 	if !valid {
-		return INVALID_ENTITY_ID, error.ErrorCode.REGISTRY_ITEM_NOT_FOUND
+		return INVALID_ENTITY_ID, error.ErrorCode.OBJECT_NOT_FOUND,
 	}
 	return enity, error.ErrorCode.NONE
 }
@@ -88,7 +88,7 @@ _get_entity_ptr :: proc(entity_id: EntityId) -> (^Entity, error.ErrorCode) {
 	}
 	entity, present := entity_manager.entities[entity_id]
 	if !present {
-		return nil, error.ErrorCode.REGISTRY_ITEM_NOT_FOUND
+		return nil, error.ErrorCode.OBJECT_NOT_FOUND,
 	}
 	return entity, error.ErrorCode.NONE
 }

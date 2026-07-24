@@ -3,6 +3,7 @@ package error
 ErrorCode :: enum i32 {
 	NONE = 0,
 	ID_INVALID,
-	REGISTRY_ITEM_NOT_FOUND,
+	OBJECT_NOT_FOUND,
+	SCENE_IS_ACTIVE,
 	NAME_EXISTS,
 }
