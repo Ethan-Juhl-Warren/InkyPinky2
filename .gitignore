@@ -1,0 +1,9 @@
+*.plan
+*.exe
+*.bat
+*.ps1
+*.sh
+
+/assets
+/build
+/test
