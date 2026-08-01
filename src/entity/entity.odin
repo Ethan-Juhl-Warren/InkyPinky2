@@ -55,7 +55,7 @@ create :: proc(name: string) -> (EntityId, error.Code) {
 	return cast(EntityId) entity_id, .NONE
 }
 
-// Need some resource manager cleanup
+// TODO Needs some resource manager cleanup
 destroy_by_id :: proc(entity_id: EntityId) -> error.Code {
 	assert(entity_manager.initialized, "destroy_by_id: entity manager not initialized, call init_entity_manager first")
 
