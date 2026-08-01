@@ -4,15 +4,8 @@ import "registry"
 import rl "vendor:raylib"
 import b3 "vendor:box3d"
 
-free_i :: proc(^int) {
-
-}
-
 main :: proc() {
 	rl.InitWindow(1280, 720, "Box3D + raylib")
-	a: registry.Registry(int)
-	registry.init_registry(&a, free_i)
-	registry.destroy_registry(&a)
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(60)
 

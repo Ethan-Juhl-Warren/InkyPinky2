@@ -1,4 +1,5 @@
-package manager
+package entity
+import "../registry"
 import "../error"
 import "../model"
 import b3 "vendor:box3d"
@@ -7,10 +8,7 @@ import b3 "vendor:box3d"
 
 EntityId :: distinct int
 
-INVALID_ENTITY_ID :: -1
-
 Entity :: struct {
-	id: EntityId,
 	name: string,
 	body_id: b3.BodyId,
 	model_id: model.ModelId,
@@ -19,76 +17,64 @@ Entity :: struct {
 
 @(private)
 EntityManager :: struct {
-	entities: map[EntityId]^Entity,
 	entity_names: map[string]EntityId,
-	entity_refrences: map[EntityId]u32,
-	next_id: EntityId
+	entity_references: map[EntityId]u32,
+	entity_registry: registry.Registry(Entity),
+	initialized: bool
 }
 
 init_entity_manager :: proc() {
-	entity_manager.entities = make(map[EntityId]^Entity)
 	entity_manager.entity_names = make(map[string]EntityId)
-	entity_manager.entity_refrences = make(map[EntityId]u32)
-	reserve(&entity_manager.entities, 10)
-	reserve(&entity_manager.entity_names, 10)
-	reserve(&entity_manager.entity_refrences, 10)
+	entity_manager.entity_references = make(map[EntityId]u32)
+	registry.init_registry(&entity_manager.entity_registry, _free_entity)
+	entity_manager.initialized = true
 }
 
 destroy_entity_manager :: proc() {
-	ids := make([dynamic]EntityId, 0, len(entity_manager.entities))
-	for id in entity_manager.entities {
-		append(&ids, id)
-	}
-	for id in ids {
-		_entity_manager_delete_entity(entity_manager.entities[id])
-	}
-	delete(entity_manager.entities)
 	delete(entity_manager.entity_names)
-	delete(entity_manager.entity_refrences)
-	delete(ids)
+	delete(entity_manager.entity_references)
+	registry.destroy_registry(&entity_manager.entity_registry)
+	entity_manager.initialized = false
 }
 
-destroy_entity :: proc(entity_id: EntityId) {
+create :: proc(entity_id: EntityId) -> (EntityId, error.ErrorCode) {
+	assert(entity_manager.initialized, "create: entity manager not intitialized, call init_entity_manager first")
+}
+
+destroy_by_id :: proc(entity_id: EntityId) {
+	assert(entity_manager.initialized, "destroy_by_id: entity manager not initialized, call init_entity_manager first")
+}
+
+destroy_by_name :: proc(entity_id: EntityId) {
+	assert(entity_manager.initialized, "destroy_by_name: entity manager not initialized, call init_entity_manager first")
 
 }
 
-new_entity :: proc(entity_id: EntityId) -> error.ErrorCode {
-	return error.ErrorCode.NONE
-}
-
-get_entity_by_name :: proc(name: string) -> (EntityId, error.ErrorCode) {
+get_by_name :: proc(name: string) -> (EntityId, error.ErrorCode) {
+	assert(entity_manager.initialized, "get_by_name: entity manager not initialized, call init_entity_manager first")
 	enity, valid := entity_manager.entity_names[name]
 	if !valid {
-		return INVALID_ENTITY_ID, error.ErrorCode.OBJECT_NOT_FOUND,
+		return registry.INVALID_ID, error.ErrorCode.OBJECT_NOT_FOUND
 	}
 	return enity, error.ErrorCode.NONE
 }
 
 
 get_entity_name :: proc(entity_id: EntityId) -> (string, error.ErrorCode) {
-	entity, found := _get_entity_ptr(entity_id)
+	assert(entity_manager.initialized, "get_entity_name: entity manager not initialized, call init_entity_manager first")
+	entity, found := registry.get_item(&entity_manager.entity_registry, cast(registry.RegistryId)entity_id)
 	if found != error.ErrorCode.NONE {
 		return "", found
 	}
 	return entity.name, error.ErrorCode.NONE
 }
 
-@(private)
-_entity_manager_delete_entity :: proc(entity: ^Entity) {
-	delete_key(&entity_manager.entities, entity.id)
-	delete_key(&entity_manager.entity_names, entity.name)
-	delete_key(&entity_manager.entity_refrences, entity.id)
-	free(entity)
-}
 
+/*
+ * TODO IMPORTANT Must add cleanup for material and script refrences once they are concrete
+*/
 @(private)
-_get_entity_ptr :: proc(entity_id: EntityId) -> (^Entity, error.ErrorCode) {
-	if entity_id <= INVALID_ENTITY_ID {
-		return nil, error.ErrorCode.ID_INVALID
-	}
-	entity, present := entity_manager.entities[entity_id]
-	if !present {
-		return nil, error.ErrorCode.OBJECT_NOT_FOUND,
-	}
-	return entity, error.ErrorCode.NONE
+_free_entity :: proc(entity: ^Entity) {
+	b3.DestroyBody(entity.body_id)
+	delete(entity.name)
 }
