@@ -47,6 +47,7 @@ create :: proc(name: string) -> (EntityId, error.Code) {
 	}
 	entity: Entity
 	entity.name = strings.clone(name)
+	entity.body_id = b3.nullBodyId
 
 	entity_id, err := registry.create_item(&entity_manager.entity_registry, entity)
 	if err != .NONE {
