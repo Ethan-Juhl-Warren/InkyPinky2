@@ -28,7 +28,7 @@ destroy_transform_manager :: proc() {
 	transform_manager.initilized = false
 }
 
-create :: proc(position: [3]f32 = {0,0,0}, scale: [3]f32 = {0,0,0}, rotation: [3]f32 = {0,0,0}) -> (TransformId, error.Code) {
+transform_create :: proc(position: [3]f32 = {0,0,0}, scale: [3]f32 = {0,0,0}, rotation: [3]f32 = {0,0,0}) -> (TransformId, error.Code) {
 	assert(transform_manager.initilized, "create: transform manager not intitialized, call init_transform_manager first")
 	transform: Transform
 	transform.position = position
@@ -42,7 +42,7 @@ create :: proc(position: [3]f32 = {0,0,0}, scale: [3]f32 = {0,0,0}, rotation: [3
 	return cast(TransformId) transform_id, .NONE
 }
 
-destroy :: proc(transform_id: TransformId) -> error.Code {
+transform_destroy :: proc(transform_id: TransformId) -> error.Code {
 	assert(transform_manager.initilized, "destroy: transform manager not initialized, call init_transform_manager first")
 
 	transform, present := registry.get_item(&transform_manager.transform_registry, cast(registry.RegistryId) transform_id)
@@ -55,7 +55,7 @@ destroy :: proc(transform_id: TransformId) -> error.Code {
 	return .NONE
 }
 
-get_position :: proc(transform_id: TransformId) -> ([3]f32, error.Code) {
+transform_get_position :: proc(transform_id: TransformId) -> ([3]f32, error.Code) {
 	assert(transform_manager.initilized, "get_position: transform manager not initialized, call init_transform_manager first")
 	entity, found := registry.get_item(&transform_manager.transform_registry, cast(registry.RegistryId) transform_id)
 	if found != .NONE {
@@ -64,7 +64,7 @@ get_position :: proc(transform_id: TransformId) -> ([3]f32, error.Code) {
 	return entity.position, .NONE
 }
 
-get_scale :: proc(transform_id: TransformId) -> ([3]f32, error.Code) {
+transform_get_scale :: proc(transform_id: TransformId) -> ([3]f32, error.Code) {
 	assert(transform_manager.initilized, "get_scale: transform manager not initialized, call init_transform_manager first")
 	entity, found := registry.get_item(&transform_manager.transform_registry, cast(registry.RegistryId) transform_id)
 	if found != .NONE {
@@ -73,7 +73,7 @@ get_scale :: proc(transform_id: TransformId) -> ([3]f32, error.Code) {
 	return entity.scale, .NONE
 }
 
-get_rotation :: proc(transform_id: TransformId) -> ([3]f32, error.Code) {
+transform_get_rotation :: proc(transform_id: TransformId) -> ([3]f32, error.Code) {
 	assert(transform_manager.initilized, "get_rotation: transform manager not initialized, call init_transform_manager first")
 	entity, found := registry.get_item(&transform_manager.transform_registry, cast(registry.RegistryId) transform_id)
 	if found != .NONE {
@@ -82,7 +82,7 @@ get_rotation :: proc(transform_id: TransformId) -> ([3]f32, error.Code) {
 	return entity.rotation, .NONE
 }
 
-set_position :: proc(transform_id: TransformId, position: [3]f32) -> error.Code {
+transform_set_position :: proc(transform_id: TransformId, position: [3]f32) -> error.Code {
 	assert(transform_manager.initilized, "get_position: transform manager not initialized, call init_transform_manager first")
 	entity, found := registry.get_item(&transform_manager.transform_registry, cast(registry.RegistryId) transform_id)
 	if found != .NONE {
@@ -92,7 +92,7 @@ set_position :: proc(transform_id: TransformId, position: [3]f32) -> error.Code 
 	return .NONE
 }
 
-set_scale :: proc(transform_id: TransformId, scale: [3]f32) -> error.Code {
+transform_set_scale :: proc(transform_id: TransformId, scale: [3]f32) -> error.Code {
 	assert(transform_manager.initilized, "get_scale: transform manager not initialized, call init_transform_manager first")
 	entity, found := registry.get_item(&transform_manager.transform_registry, cast(registry.RegistryId) transform_id)
 	if found != .NONE {
@@ -102,7 +102,7 @@ set_scale :: proc(transform_id: TransformId, scale: [3]f32) -> error.Code {
 	return .NONE
 }
 
-set_rotation :: proc(transform_id: TransformId, rotation: [3]f32) -> error.Code {
+transform_set_rotation :: proc(transform_id: TransformId, rotation: [3]f32) -> error.Code {
 	assert(transform_manager.initilized, "get_rotation: transform manager not initialized, call init_transform_manager first")
 	entity, found := registry.get_item(&transform_manager.transform_registry, cast(registry.RegistryId) transform_id)
 	if found != .NONE {
