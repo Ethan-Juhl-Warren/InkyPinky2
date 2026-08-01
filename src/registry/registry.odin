@@ -16,9 +16,8 @@ Registry :: struct($T: typeid) {
 	free_item: proc(^T),
 }
 
-init_registry :: proc(registry: ^Registry($T), free_item: proc(^T)) {
+init_registry :: proc(registry: ^Registry($T), free_item: proc(^T) = nil) {
 	assert(registry != nil, "init_registry: cannot init null, must allocate registry")
-	assert(free_item != nil, "init_registry: cannot supply nil free procudure leave default")
 	registry.items = make([dynamic]T)
 	registry.id_of = make([dynamic]RegistryId)
 	registry.slot_of = make(map[RegistryId]int)
@@ -27,12 +26,14 @@ init_registry :: proc(registry: ^Registry($T), free_item: proc(^T)) {
 }
 
 destroy_registry :: proc(registry: ^Registry($T)) {
+	assert(registry != nil, "destroy_registry: cannot destroy null registry")
 	if registry == nil {
 		return
 	}
-	assert(registry.free_item != nil, "destroy_registry: registry imporoperly initilized")
-	for &item in registry.items {
-		registry.free_item(&item)
+	if registry.free_item != nil {
+		for &item in registry.items {
+			registry.free_item(&item)
+		}
 	}
 	delete(registry.items)
 	delete(registry.id_of)
@@ -41,18 +42,19 @@ destroy_registry :: proc(registry: ^Registry($T)) {
 }
 
 get_item :: proc(registry: ^Registry($T), item_id: RegistryId) -> (^T, error.Code) {
+	assert(registry != nil, "get_item: cannot insert into null registry")
 	if item_id <= INVALID_ID {
-		return nil, error.Code.ID_INVALID
+		return nil, .ID_INVALID
 	}
 	index, present := registry.slot_of[item_id]
 	if !present {
-		return nil, error.Code.OBJECT_NOT_FOUND,
+		return nil, .OBJECT_NOT_FOUND,
 	}
-	return &registry.items[index], error.Code.NONE
+	return &registry.items[index], .NONE
 }
 
-create_item :: proc(registry: ^Registry($T), item: T) -> (RegistryId, error.Code) {
-	assert(registry != nil, "new_registry_item: cannot insert into null registry")
+create_item :: proc(registry: ^Registry($T), #by_ptr item: T) -> (RegistryId, error.Code) {
+	assert(registry != nil, "create_item: cannot create item on null registry")
 	registry.next_id += 1
 	id := registry.next_id
 
@@ -60,19 +62,22 @@ create_item :: proc(registry: ^Registry($T), item: T) -> (RegistryId, error.Code
 	append(&registry.id_of, id)
 	registry.slot_of[id] = len(registry.items) - 1
 
-	return id, error.Code.NONE
+	return id, .NONE
 }
 
 destroy_item :: proc(registry: ^Registry($T), item_id: RegistryId) -> error.Code {
+	assert(registry != nil, "destroy_item: cannot destroy item on null registry")
 	if item_id <= INVALID_ID {
-		return error.Code.ID_INVALID
+		return .ID_INVALID
 	}
 	index, present := registry.slot_of[item_id]
 	if !present {
-		return error.Code.OBJECT_NOT_FOUND,
+		return .OBJECT_NOT_FOUND,
 	}
 
-	registry.free_item(&registry.items[index])
+	if registry.free_item != nil {
+		registry.free_item(&registry.items[index])
+	}
 
 	last := len(registry.items) - 1
 	moved_id := registry.id_of[last]
@@ -85,13 +90,15 @@ destroy_item :: proc(registry: ^Registry($T), item_id: RegistryId) -> error.Code
 	}
 	delete_key(&registry.slot_of, item_id)
 
-	return error.Code.NONE
+	return .NONE
 }
 
 registry_slice :: proc(registry: ^Registry($T)) -> []T {
+	assert(registry != nil, "registry_slice: cannot get slice of null registry")
 	return registry.items[:]
 }
 
 registry_len :: proc(registry: ^Registry($T)) -> int {
+	assert(registry != nil, "registry_len: cannot get length of null registry")
 	return len(registry.items)
 }
