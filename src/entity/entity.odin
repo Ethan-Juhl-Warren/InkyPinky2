@@ -47,16 +47,36 @@ create :: proc(name: string) -> (EntityId, error.Code) {
 	entity: Entity
 	entity.name = strings.clone(name)
 
-
+	entity_id, err := registry.create_item(&entity_manager.entity_registry, entity)
+	if err != .NONE {
+		return registry.INVALID_ID, err
+	}
+	entity_manager.entity_names[entity.name] = cast(EntityId) entity_id
+	return cast(EntityId) entity_id, .NONE
 }
 
-destroy_by_id :: proc(entity_id: EntityId) {
+// Need some resource manager cleanup
+destroy_by_id :: proc(entity_id: EntityId) -> error.Code {
 	assert(entity_manager.initialized, "destroy_by_id: entity manager not initialized, call init_entity_manager first")
+
+	entity, present := registry.get_item(&entity_manager.entity_registry, cast(registry.RegistryId)entity_id)
+
+	if present != .NONE {
+		return present
+	}
+
+	delete_key(&entity_manager.entity_names, entity.name)
+	registry.destroy_item(&entity_manager.entity_registry, cast(registry.RegistryId) entity_id)
+	return .NONE
 }
 
-destroy_by_name :: proc(entity_id: EntityId) {
+destroy_by_name :: proc(name: string) -> error.Code {
 	assert(entity_manager.initialized, "destroy_by_name: entity manager not initialized, call init_entity_manager first")
-
+	entity_id, present := entity_manager.entity_names[name]
+	if !present {
+		return .OBJECT_NOT_FOUND
+	}
+	return destroy_by_id(entity_id)
 }
 
 get_by_name :: proc(name: string) -> (EntityId, error.Code) {
@@ -68,7 +88,6 @@ get_by_name :: proc(name: string) -> (EntityId, error.Code) {
 	return enity, error.Code.NONE
 }
 
-
 get_entity_name :: proc(entity_id: EntityId) -> (string, error.Code) {
 	assert(entity_manager.initialized, "get_entity_name: entity manager not initialized, call init_entity_manager first")
 	entity, found := registry.get_item(&entity_manager.entity_registry, cast(registry.RegistryId)entity_id)
@@ -77,7 +96,6 @@ get_entity_name :: proc(entity_id: EntityId) -> (string, error.Code) {
 	}
 	return entity.name, error.Code.NONE
 }
-
 
 /*
  * TODO IMPORTANT Must add cleanup for material and script refrences once they are concrete
