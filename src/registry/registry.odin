@@ -40,18 +40,18 @@ destroy_registry :: proc(registry: ^Registry($T)) {
 	registry.next_id = UNASSIGNED_ID
 }
 
-get_item :: proc(registry: ^Registry($T), item_id: RegistryId) -> (^T, error.ErrorCode) {
+get_item :: proc(registry: ^Registry($T), item_id: RegistryId) -> (^T, error.Code) {
 	if item_id <= INVALID_ID {
-		return nil, error.ErrorCode.ID_INVALID
+		return nil, error.Code.ID_INVALID
 	}
 	index, present := registry.slot_of[item_id]
 	if !present {
-		return nil, error.ErrorCode.OBJECT_NOT_FOUND,
+		return nil, error.Code.OBJECT_NOT_FOUND,
 	}
-	return &registry.items[index], error.ErrorCode.NONE
+	return &registry.items[index], error.Code.NONE
 }
 
-create_item :: proc(registry: ^Registry($T), item: T) -> (RegistryId, error.ErrorCode) {
+create_item :: proc(registry: ^Registry($T), item: T) -> (RegistryId, error.Code) {
 	assert(registry != nil, "new_registry_item: cannot insert into null registry")
 	registry.next_id += 1
 	id := registry.next_id
@@ -60,16 +60,16 @@ create_item :: proc(registry: ^Registry($T), item: T) -> (RegistryId, error.Erro
 	append(&registry.id_of, id)
 	registry.slot_of[id] = len(registry.items) - 1
 
-	return id, error.ErrorCode.NONE
+	return id, error.Code.NONE
 }
 
-destroy_item :: proc(registry: ^Registry($T), item_id: RegistryId) -> error.ErrorCode {
+destroy_item :: proc(registry: ^Registry($T), item_id: RegistryId) -> error.Code {
 	if item_id <= INVALID_ID {
-		return error.ErrorCode.ID_INVALID
+		return error.Code.ID_INVALID
 	}
 	index, present := registry.slot_of[item_id]
 	if !present {
-		return error.ErrorCode.OBJECT_NOT_FOUND,
+		return error.Code.OBJECT_NOT_FOUND,
 	}
 
 	registry.free_item(&registry.items[index])
@@ -85,7 +85,7 @@ destroy_item :: proc(registry: ^Registry($T), item_id: RegistryId) -> error.Erro
 	}
 	delete_key(&registry.slot_of, item_id)
 
-	return error.ErrorCode.NONE
+	return error.Code.NONE
 }
 
 registry_slice :: proc(registry: ^Registry($T)) -> []T {

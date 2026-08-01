@@ -1,5 +1,6 @@
 package entity
 import "../registry"
+import "core:strings"
 import "../error"
 import "../model"
 import b3 "vendor:box3d"
@@ -37,8 +38,16 @@ destroy_entity_manager :: proc() {
 	entity_manager.initialized = false
 }
 
-create :: proc(entity_id: EntityId) -> (EntityId, error.ErrorCode) {
+create :: proc(name: string) -> (EntityId, error.Code) {
 	assert(entity_manager.initialized, "create: entity manager not intitialized, call init_entity_manager first")
+	_, exists := entity_manager.entity_names[name]
+	if exists {
+		return registry.INVALID_ID, error.Code.NAME_EXISTS
+	}
+	entity: Entity
+	entity.name = strings.clone(name)
+
+
 }
 
 destroy_by_id :: proc(entity_id: EntityId) {
@@ -50,23 +59,23 @@ destroy_by_name :: proc(entity_id: EntityId) {
 
 }
 
-get_by_name :: proc(name: string) -> (EntityId, error.ErrorCode) {
+get_by_name :: proc(name: string) -> (EntityId, error.Code) {
 	assert(entity_manager.initialized, "get_by_name: entity manager not initialized, call init_entity_manager first")
 	enity, valid := entity_manager.entity_names[name]
 	if !valid {
-		return registry.INVALID_ID, error.ErrorCode.OBJECT_NOT_FOUND
+		return registry.INVALID_ID, error.Code.OBJECT_NOT_FOUND
 	}
-	return enity, error.ErrorCode.NONE
+	return enity, error.Code.NONE
 }
 
 
-get_entity_name :: proc(entity_id: EntityId) -> (string, error.ErrorCode) {
+get_entity_name :: proc(entity_id: EntityId) -> (string, error.Code) {
 	assert(entity_manager.initialized, "get_entity_name: entity manager not initialized, call init_entity_manager first")
 	entity, found := registry.get_item(&entity_manager.entity_registry, cast(registry.RegistryId)entity_id)
-	if found != error.ErrorCode.NONE {
+	if found != error.Code.NONE {
 		return "", found
 	}
-	return entity.name, error.ErrorCode.NONE
+	return entity.name, error.Code.NONE
 }
 
 

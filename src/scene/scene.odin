@@ -38,15 +38,16 @@ destroy_scene_manager :: proc() {
 	scene_manager.initialized = false
 }
 
-create :: proc(name: string, gravity: [3]f32) -> (SceneId, error.ErrorCode) {
+create :: proc(name: string, gravity: [3]f32) -> (SceneId, error.Code) {
 	assert(scene_manager.initialized, "create: scene manager not initialized, call init_scene_manager first")
 	_, exists := scene_manager.scene_names[name]
 	if exists {
-		return registry.INVALID_ID, error.ErrorCode.NAME_EXISTS
+		return registry.INVALID_ID, error.Code.NAME_EXISTS
 	}
 	scene: Scene
 	scene.name = strings.clone(name)
 
+	// Setup physics world for scene
 	world_def := b3.DefaultWorldDef()
 	world_def.gravity = gravity
 	scene.world_id = b3.CreateWorld(world_def)
@@ -56,7 +57,7 @@ create :: proc(name: string, gravity: [3]f32) -> (SceneId, error.ErrorCode) {
 		return registry.INVALID_ID, err
 	}
 	scene_manager.scene_names[scene.name] = cast(SceneId)scene_id
-	return cast(SceneId)scene_id, error.ErrorCode.NONE
+	return cast(SceneId)scene_id, error.Code.NONE
 }
 
 get_active :: proc() -> SceneId {
@@ -68,36 +69,36 @@ get_active :: proc() -> SceneId {
  * param scene_id id of scene to set active
  * note scene_id must be valid and loaded
  */
-set_active :: proc(scene_id: SceneId) -> error.ErrorCode {
+set_active :: proc(scene_id: SceneId) -> error.Code {
 	assert(scene_manager.initialized, "set_active: scene manager not initialized, call init_scene_manager first")
 	_, err := registry.get_item(&scene_manager.scene_registry, cast(registry.RegistryId)scene_id)
 	if err != .NONE {
-		return error.ErrorCode.OBJECT_NOT_FOUND
+		return error.Code.OBJECT_NOT_FOUND
 	}
 	scene_manager.active_scene = scene_id
-	return error.ErrorCode.NONE
+	return error.Code.NONE
 }
 
-set_active_by_name :: proc(name: string) -> error.ErrorCode {
+set_active_by_name :: proc(name: string) -> error.Code {
 	assert(scene_manager.initialized, "set_active_by_name: scene manager not initialized, call init_scene_manager first")
 	scene_id, valid := scene_manager.scene_names[name]
 	if !valid {
-		return error.ErrorCode.OBJECT_NOT_FOUND
+		return error.Code.OBJECT_NOT_FOUND
 	}
 	return set_active(scene_id)
 }
 
 
-get_by_name :: proc(name: string) -> (SceneId, error.ErrorCode) {
+get_by_name :: proc(name: string) -> (SceneId, error.Code) {
 	assert(scene_manager.initialized, "get_by_name: scene manager not initialized, call init_scene_manager first")
 	scene_id, valid := scene_manager.scene_names[name]
 	if !valid {
-		return registry.INVALID_ID, error.ErrorCode.OBJECT_NOT_FOUND
+		return registry.INVALID_ID, error.Code.OBJECT_NOT_FOUND
 	}
-	return scene_id, error.ErrorCode.NONE
+	return scene_id, error.Code.NONE
 }
 
-destroy_by_id :: proc(scene_id: SceneId) -> error.ErrorCode {
+destroy_by_id :: proc(scene_id: SceneId) -> error.Code {
 	assert(scene_manager.initialized, "destroy_by_id: scene manager not initialized, call init_scene_manager first")
 	if scene_id == scene_manager.active_scene {
 		return .SCENE_IS_ACTIVE
@@ -105,20 +106,20 @@ destroy_by_id :: proc(scene_id: SceneId) -> error.ErrorCode {
 
 	scene, present := registry.get_item(&scene_manager.scene_registry, cast(registry.RegistryId)scene_id)
 
-	if present != error.ErrorCode.NONE {
+	if present != error.Code.NONE {
 		return present
 	}
 
 	delete_key(&scene_manager.scene_names, scene.name)
 	registry.destroy_item(&scene_manager.scene_registry, cast(registry.RegistryId)scene_id)
-	return error.ErrorCode.NONE
+	return error.Code.NONE
 }
 
-destroy_by_name :: proc(name: string) -> error.ErrorCode {
+destroy_by_name :: proc(name: string) -> error.Code {
 	assert(scene_manager.initialized, "destroy_by_name: scene manager not initialized, call init_scene_manager first")
 	scene_id, present := scene_manager.scene_names[name]
 	if !present {
-		return error.ErrorCode.OBJECT_NOT_FOUND
+		return error.Code.OBJECT_NOT_FOUND
 	}
 	return destroy_by_id(scene_id)
 }
@@ -126,17 +127,17 @@ destroy_by_name :: proc(name: string) -> error.ErrorCode {
 /*
  * TODO INCOMPLETE doesnt deal with physics side
  */
-add_entity :: proc(scene_id: SceneId, entity_id: entity.EntityId) -> error.ErrorCode {
+add_entity :: proc(scene_id: SceneId, entity_id: entity.EntityId) -> error.Code {
 	assert(scene_manager.initialized, "add_entity: scene manager not initialized, call init_scene_manager first")
 	scene, err := registry.get_item(&scene_manager.scene_registry, cast(registry.RegistryId)scene_id)
-	if err != error.ErrorCode.NONE {
+	if err != error.Code.NONE {
 		return err
 	}
 	append(&scene.entities, entity_id)
-	return error.ErrorCode.NONE
+	return error.Code.NONE
 }
 
-remove_entity :: proc(scene_id: SceneId, entity_id: entity.EntityId) -> error.ErrorCode {
+remove_entity :: proc(scene_id: SceneId, entity_id: entity.EntityId) -> error.Code {
 	assert(scene_manager.initialized, "remove_entity: scene manager not initialized, call init_scene_manager first")
 	scene, err := registry.get_item(&scene_manager.scene_registry, cast(registry.RegistryId)scene_id)
 	if err != .NONE {
@@ -148,7 +149,7 @@ remove_entity :: proc(scene_id: SceneId, entity_id: entity.EntityId) -> error.Er
 	        return .NONE
 	    }
 	}
-	return error.ErrorCode.OBJECT_NOT_FOUND
+	return error.Code.OBJECT_NOT_FOUND
 }
 
 /*
@@ -157,13 +158,13 @@ remove_entity :: proc(scene_id: SceneId, entity_id: entity.EntityId) -> error.Er
  * scene (the backing array may reallocate) or until the scene is destroyed.
  * Copy it (e.g. slice.clone) if you need to retain it across those calls.
  */
-get_entities :: proc(scene_id: SceneId) -> ([]entity.EntityId, error.ErrorCode) {
+get_entities :: proc(scene_id: SceneId) -> ([]entity.EntityId, error.Code) {
 	assert(scene_manager.initialized, "get_entities: scene manager not initialized, call init_scene_manager first")
 	scene, err := registry.get_item(&scene_manager.scene_registry, cast(registry.RegistryId)scene_id)
-	if err != error.ErrorCode.NONE {
+	if err != error.Code.NONE {
 		return nil, err
 	}
-	return scene.entities[:], error.ErrorCode.NONE
+	return scene.entities[:], error.Code.NONE
 }
 
 @(private)

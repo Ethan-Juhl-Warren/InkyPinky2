@@ -1,6 +1,6 @@
 package error
 
-ErrorCode :: enum i32 {
+Code :: enum i32 {
 	NONE = 0,
 	ID_INVALID,
 	OBJECT_NOT_FOUND,
