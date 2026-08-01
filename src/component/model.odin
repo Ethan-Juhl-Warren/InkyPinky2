@@ -1,4 +1,4 @@
-package components
+package component
 
 import uuid "core:encoding/uuid"
 

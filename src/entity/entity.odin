@@ -2,7 +2,7 @@ package entity
 import "../registry"
 import "core:strings"
 import "../error"
-import "../model"
+import cmpt "../component"
 import b3 "vendor:box3d"
 
 @(private) entity_manager: EntityManager
@@ -11,8 +11,9 @@ EntityId :: distinct int
 
 Entity :: struct {
 	name: string,
+	transform: cmpt.TransformId,
 	body_id: b3.BodyId,
-	model_id: model.ModelId,
+	model_id: cmpt.ModelId,
 	script: int
 }
 
