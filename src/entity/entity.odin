@@ -12,7 +12,7 @@ EntityId :: distinct int
 Entity :: struct {
 	name: string,
 	transform: cmpt.TransformId,
-	body_id: b3.BodyId,
+	rigidbody: cmpt.RigidBodyId,
 	model_id: cmpt.ModelId,
 	script: int
 }
@@ -47,7 +47,8 @@ create :: proc(name: string) -> (EntityId, error.Code) {
 	}
 	entity: Entity
 	entity.name = strings.clone(name)
-	entity.body_id = b3.nullBodyId
+	entity.rigidbody = cast(cmpt.RigidBodyId) registry.INVALID_ID
+	entity.
 
 	entity_id, err := registry.create_item(&entity_manager.entity_registry, entity)
 	if err != .NONE {
@@ -104,6 +105,6 @@ get_entity_name :: proc(entity_id: EntityId) -> (string, error.Code) {
 */
 @(private)
 _free_entity :: proc(entity: ^Entity) {
-	b3.DestroyBody(entity.body_id)
+	b3.DestroyBody(entity.rigidbody)
 	delete(entity.name)
 }

@@ -1,6 +1,6 @@
 package main
 
-import "registry"
+import ""
 import rl "vendor:raylib"
 import b3 "vendor:box3d"
 

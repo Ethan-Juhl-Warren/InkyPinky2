@@ -5,11 +5,31 @@ import b3 "vendor:box3d"
 
 @(private) rigidbody_manager: RigidBodyManager
 
+BoxGeometry :: struct {
+	half_extents: [3]f32
+}
+
+ShapeGeometry :: union {
+	b3.Sphere,
+	b3.Capsule,
+	BoxGeometry,
+	u64
+}
+
+CollisionShape :: struct {
+	geometry: ShapeGeometry,
+	material: b3.SurfaceMaterial,
+	density: f32,
+	is_sensor: bool,
+	shape_id: b3.ShapeId
+}
+
 RigidBodyId :: distinct int
 
 RigidBody :: struct {
-	b3_rigidbody_id: b3.BodyId,
-	b3_bodydef: b3.BodyDef
+	internal_rigidbody_id: b3.BodyId,
+	internal_bodydef: b3.BodyDef,
+	shapes: [dynamic]CollisionShape
 }
 
 @(private)
@@ -34,7 +54,7 @@ create_rigidbody :: proc(bodydef: b3.BodyDef) -> (RigidBodyId, error.Code) {
 	rigidbody.b3_rigidbody_id = b3.nullBodyId
 	rigidbody.b3_bodydef = bodydef
 
-	rigidbody_id, err := registry.create_item(&rigidbody_manager.rigidbody_registry, rigidBody)
+	rigidbody_id, err := registry.create_item(&rigidbody_manager.rigidbody_registry, rigidbody)
 	if err != .NONE {
 		return registry.INVALID_ID, err
 	}
@@ -56,4 +76,56 @@ destroy_rigidbody :: proc(rigidbody_id: RigidBodyId) -> error.Code {
 @(private)
 _free_rigidbody :: proc(rigidbody: ^RigidBody) {
 	b3.DestroyBody(rigidbody.b3_rigidbody_id)
+}
+
+@(private)
+_realize_rigidbody :: proc(rigidbody: ^RigidBody, world_id: b3.WorldId) {
+	rigidbody.internal_rigidbody_id = b3.CreateBody(world_id, rigidbody.internal_bodydef)
+	for &shape in rigidbody.shapes {
+		shape_def := b3.DefaultShapeDef()
+		shape_def.density = shape.density
+		shape_def.baseMaterial = shape.material
+
+		switch geometry in shape.geometry {
+			case b3.Sphere:
+				sphere := geometry
+				shape.shape_id = b3.CreateSphereShape(rigidbody.internal_rigidbody_id, shape_def, &sphere)
+			case b3.Capsule:
+				capsule := geometry
+				shape.shape_id = b3.CreateCapsuleShape(rigidbody.internal_rigidbody_id, shape_def, &capsule)
+			case BoxGeometry:
+				hull := b3.MakeBoxHull(geometry.half_extents.x, geometry.half_extents.y, geometry.half_extents.z)
+				shape.shape_id = b3.CreateHullShape(rigidbody.internal_rigidbody_id, shape_def, &hull.base)
+			case u64:
+				assert(true, "Custom Hull types unsupported")
+		}
+	}
+}
+
+@(private)
+_unrealize_rigidbody :: proc(rigidbody: ^RigidBody) {
+	if b3.Body_IsValid(rigidbody.internal_rigidbody_id) == false {
+		return
+	}
+	rb_id := rigidbody.internal_rigidbody_id
+	rb_def := &rigidbody.internal_bodydef
+
+	rb_def.type = b3.Body_GetType(rb_id)
+	rb_def.position = b3.Body_GetPosition(rb_id)
+	rb_def.rotation = b3.Body_GetRotation(rb_id)
+	rb_def.linearVelocity = b3.Body_GetLinearVelocity(rb_id)
+	rb_def.angularVelocity = b3.Body_GetAngularVelocity(rb_id)
+	rb_def.linearDamping = b3.Body_GetLinearDamping(rb_id)
+	rb_def.angularDamping = b3.Body_GetAngularDamping(rb_id)
+	rb_def.gravityScale = b3.Body_GetGravityScale(rb_id)
+	rb_def.sleepThreshold = b3.Body_GetSleepThreshold(rb_id)
+	rb_def.motionLocks = b3.Body_GetMotionLocks(rb_id)
+	rb_def.isAwake = b3.Body_IsAwake(rb_id)
+	rb_def.isEnabled = b3.Body_IsEnabled(rb_id)
+
+	b3.DestroyBody(id)
+	rigidbody.internal_rigidbody_id = b3.nullBodyId
+	for &shape in rigidbody.shapes {
+		shape.shape_id = b3.nullShapeId
+	}
 }
