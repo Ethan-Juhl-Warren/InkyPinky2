@@ -28,7 +28,7 @@ destroy_transform_manager :: proc() {
 	transform_manager.initilized = false
 }
 
-transform_create :: proc(position: [3]f32 = {0,0,0}, scale: [3]f32 = {0,0,0}, rotation: [3]f32 = {0,0,0}) -> (TransformId, error.Code) {
+transform_create :: proc(position: [3]f32 = {0,0,0}, scale: [3]f32 = {1,1,1}, rotation: [3]f32 = {0,0,0}) -> (TransformId, error.Code) {
 	assert(transform_manager.initilized, "create: transform manager not intitialized, call init_transform_manager first")
 	transform: Transform
 	transform.position = position

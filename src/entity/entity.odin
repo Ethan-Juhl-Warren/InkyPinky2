@@ -3,7 +3,6 @@ import "../registry"
 import "core:strings"
 import "../error"
 import cmpt "../component"
-import b3 "vendor:box3d"
 
 @(private) entity_manager: EntityManager
 
@@ -48,7 +47,7 @@ create :: proc(name: string) -> (EntityId, error.Code) {
 	entity: Entity
 	entity.name = strings.clone(name)
 	entity.rigidbody = cast(cmpt.RigidBodyId) registry.INVALID_ID
-	entity.
+	entity.transform = cast(cmpt.TransformId) registry.INVALID_ID
 
 	entity_id, err := registry.create_item(&entity_manager.entity_registry, entity)
 	if err != .NONE {
@@ -105,6 +104,6 @@ get_entity_name :: proc(entity_id: EntityId) -> (string, error.Code) {
 */
 @(private)
 _free_entity :: proc(entity: ^Entity) {
-	b3.DestroyBody(entity.rigidbody)
+	cmpt.destroy_rigidbody(entity.rigidbody)
 	delete(entity.name)
 }

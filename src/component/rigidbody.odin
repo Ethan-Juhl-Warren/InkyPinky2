@@ -145,6 +145,6 @@ _unrealize_rigidbody :: proc(rigidbody: ^RigidBody) {
 
 @(private)
 _free_rigidbody :: proc(rigidbody: ^RigidBody) {
-	b3.DestroyBody(rigidbody.internal_rigidbody_id)
 	_unrealize_rigidbody(rigidbody)
+	delete(rigidbody.shapes)
 }
