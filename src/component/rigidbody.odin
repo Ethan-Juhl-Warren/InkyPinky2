@@ -1,4 +1,4 @@
-package physics
+package component
 import "../registry"
 import "../error"
 import b3 "vendor:box3d"
@@ -51,8 +51,8 @@ destroy_rigidbody_manager :: proc() {
 create_rigidbody :: proc(bodydef: b3.BodyDef) -> (RigidBodyId, error.Code) {
 	assert(rigidbody_manager.initilized, "create_rigidbody: rigidbody_manager not intilized, call init_rigid_bosy_manager")
 	rigidbody: RigidBody
-	rigidbody.b3_rigidbody_id = b3.nullBodyId
-	rigidbody.b3_bodydef = bodydef
+	rigidbody.internal_rigidbody_id = b3.nullBodyId
+	rigidbody.internal_bodydef = bodydef
 
 	rigidbody_id, err := registry.create_item(&rigidbody_manager.rigidbody_registry, rigidbody)
 	if err != .NONE {
@@ -73,9 +73,22 @@ destroy_rigidbody :: proc(rigidbody_id: RigidBodyId) -> error.Code {
 	return .NONE
 }
 
-@(private)
-_free_rigidbody :: proc(rigidbody: ^RigidBody) {
-	b3.DestroyBody(rigidbody.b3_rigidbody_id)
+realize_rigidbody :: proc(rigidbody_id: RigidBodyId, world_id: b3.WorldId) -> error.Code {
+	rigidbody, err := registry.get_item(&rigidbody_manager.rigidbody_registry, cast(registry.RegistryId) rigidbody_id)
+	if err != .NONE {
+		return err
+	}
+	_realize_rigidbody(rigidbody, world_id)
+	return .NONE
+}
+
+unrealize_rigidbody :: proc(rigidbody_id: RigidBodyId) -> error.Code {
+	rigidbody, err := registry.get_item(&rigidbody_manager.rigidbody_registry, cast(registry.RegistryId) rigidbody_id)
+	if err != .NONE {
+		return err
+	}
+	_unrealize_rigidbody(rigidbody)
+	return .NONE
 }
 
 @(private)
@@ -97,7 +110,7 @@ _realize_rigidbody :: proc(rigidbody: ^RigidBody, world_id: b3.WorldId) {
 				hull := b3.MakeBoxHull(geometry.half_extents.x, geometry.half_extents.y, geometry.half_extents.z)
 				shape.shape_id = b3.CreateHullShape(rigidbody.internal_rigidbody_id, shape_def, &hull.base)
 			case u64:
-				assert(true, "Custom Hull types unsupported")
+				assert(false, "Custom hull types unsupported")
 		}
 	}
 }
@@ -123,9 +136,15 @@ _unrealize_rigidbody :: proc(rigidbody: ^RigidBody) {
 	rb_def.isAwake = b3.Body_IsAwake(rb_id)
 	rb_def.isEnabled = b3.Body_IsEnabled(rb_id)
 
-	b3.DestroyBody(id)
+	b3.DestroyBody(rb_id)
 	rigidbody.internal_rigidbody_id = b3.nullBodyId
 	for &shape in rigidbody.shapes {
 		shape.shape_id = b3.nullShapeId
 	}
+}
+
+@(private)
+_free_rigidbody :: proc(rigidbody: ^RigidBody) {
+	b3.DestroyBody(rigidbody.internal_rigidbody_id)
+	_unrealize_rigidbody(rigidbody)
 }
