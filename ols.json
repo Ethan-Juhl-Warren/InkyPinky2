@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/DanielGavin/ols/master/misc/ols.schema.json",
+  "odin_command": "C:/Program Files/Odin/odin.exe",
+  "enable_document_symbols": true,
+  "enable_hover": true,
+  "enable_snippets": true,
+  "enable_semantic_tokens": false,
+  "verbose": true,
+  "profile": "default",
+  "profiles": [
+    { "name": "default", "os": "windows", "checker_path": ["src", "src/registry", "src/entity", "src/error", "src/scene", "src/script", "src/component"] }
+  ]
+}

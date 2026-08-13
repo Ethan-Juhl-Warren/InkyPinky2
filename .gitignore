@@ -4,6 +4,8 @@
 *.ps1
 *.sh
 
+osl.json
+
 /assets
 /build
 /test

@@ -2,6 +2,7 @@ package component
 import "../registry"
 import "../error"
 import b3 "vendor:box3d"
+import "../entity"
 
 @(private) rigidbody_manager: RigidBodyManager
 
@@ -24,8 +25,6 @@ CollisionShape :: struct {
 	shape_id: b3.ShapeId
 }
 
-RigidBodyId :: distinct int
-
 RigidBody :: struct {
 	internal_rigidbody_id: b3.BodyId,
 	internal_bodydef: b3.BodyDef,
@@ -34,7 +33,7 @@ RigidBody :: struct {
 
 @(private)
 RigidBodyManager :: struct {
-	rigidbody_registry: registry.Registry(RigidBody),
+	rigidbody_registry: registry.Registry(RigidBody, entity.EntityId),
 	initilized: bool
 }
 
@@ -48,33 +47,33 @@ destroy_rigidbody_manager :: proc() {
 	rigidbody_manager.initilized = false
 }
 
-create_rigidbody :: proc(bodydef: b3.BodyDef) -> (RigidBodyId, error.Code) {
+create_rigidbody :: proc(entity_id: entity.EntityId, bodydef: b3.BodyDef) -> error.Code {
 	assert(rigidbody_manager.initilized, "create_rigidbody: rigidbody_manager not intilized, call init_rigid_bosy_manager")
 	rigidbody: RigidBody
 	rigidbody.internal_rigidbody_id = b3.nullBodyId
 	rigidbody.internal_bodydef = bodydef
 
-	rigidbody_id, err := registry.create_item(&rigidbody_manager.rigidbody_registry, rigidbody)
+	err := registry.create_item(&rigidbody_manager.rigidbody_registry, entity_id, rigidbody)
 	if err != .NONE {
-		return registry.INVALID_ID, err
+		return err
 	}
-	return cast(RigidBodyId) rigidbody_id, .NONE
+	return .NONE
 }
 
-destroy_rigidbody :: proc(rigidbody_id: RigidBodyId) -> error.Code {
+destroy_rigidbody :: proc(entity_id: entity.EntityId) -> error.Code {
 	assert(rigidbody_manager.initilized, "destroy_rigidbody: rigidbody manager not initialized, call init_rigidbosy_manager first")
 
-	rigidbody, present := registry.get_item(&rigidbody_manager.rigidbody_registry, cast(registry.RegistryId) rigidbody_id)
+	rigidbody, present := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
 
 	if present != .NONE {
 		return present
 	}
-	registry.destroy_item(&rigidbody_manager.rigidbody_registry, cast(registry.RegistryId) rigidbody_id)
+	registry.destroy_item(&rigidbody_manager.rigidbody_registry, entity_id)
 	return .NONE
 }
 
-realize_rigidbody :: proc(rigidbody_id: RigidBodyId, world_id: b3.WorldId) -> error.Code {
-	rigidbody, err := registry.get_item(&rigidbody_manager.rigidbody_registry, cast(registry.RegistryId) rigidbody_id)
+realize_rigidbody :: proc(entity_id: entity.EntityId, world_id: b3.WorldId) -> error.Code {
+	rigidbody, err := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
 	if err != .NONE {
 		return err
 	}
@@ -82,8 +81,8 @@ realize_rigidbody :: proc(rigidbody_id: RigidBodyId, world_id: b3.WorldId) -> er
 	return .NONE
 }
 
-unrealize_rigidbody :: proc(rigidbody_id: RigidBodyId) -> error.Code {
-	rigidbody, err := registry.get_item(&rigidbody_manager.rigidbody_registry, cast(registry.RegistryId) rigidbody_id)
+unrealize_rigidbody :: proc(entity_id: entity.EntityId) -> error.Code {
+	rigidbody, err := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
 	if err != .NONE {
 		return err
 	}

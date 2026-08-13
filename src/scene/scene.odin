@@ -19,13 +19,15 @@ Scene :: struct {
 @(private)
 SceneManager :: struct {
 	scene_names: map[string]SceneId,
-	scene_registry: registry.Registry(Scene),
+	scene_registry: registry.Registry(Scene, SceneId),
+	next_id: SceneId,
 	active_scene: SceneId,
 	initialized: bool
 }
 
 init_scene_manager :: proc() {
 	registry.init_registry(&scene_manager.scene_registry, _free_scene)
+	scene_manager.next_id = SceneId(0)
 	scene_manager.scene_names = make(map[string]SceneId)
 	scene_manager.active_scene = registry.UNASSIGNED_ID
 	scene_manager.initialized = true
@@ -33,6 +35,7 @@ init_scene_manager :: proc() {
 
 destroy_scene_manager :: proc() {
 	registry.destroy_registry(&scene_manager.scene_registry)
+	scene_manager.next_id = SceneId(0)
 	delete(scene_manager.scene_names)
 	scene_manager.active_scene = registry.UNASSIGNED_ID
 	scene_manager.initialized = false
@@ -52,12 +55,13 @@ create :: proc(name: string, gravity: [3]f32) -> (SceneId, error.Code) {
 	world_def.gravity = gravity
 	scene.world_id = b3.CreateWorld(world_def)
 
-	scene_id, err := registry.create_item(&scene_manager.scene_registry, scene)
+	scene_manager.next_id += 1
+	err := registry.create_item(&scene_manager.scene_registry, scene_manager.next_id, scene)
 	if err != .NONE {
 		return registry.INVALID_ID, err
 	}
-	scene_manager.scene_names[scene.name] = cast(SceneId) scene_id
-	return cast(SceneId) scene_id, .NONE
+	scene_manager.scene_names[scene.name] = scene_manager.next_id
+	return cast(SceneId) scene_manager.next_id, .NONE
 }
 
 get_active :: proc() -> SceneId {
@@ -71,7 +75,7 @@ get_active :: proc() -> SceneId {
  */
 set_active :: proc(scene_id: SceneId) -> error.Code {
 	assert(scene_manager.initialized, "set_active: scene manager not initialized, call init_scene_manager first")
-	_, err := registry.get_item(&scene_manager.scene_registry, cast(registry.RegistryId)scene_id)
+	_, err := registry.get_item(&scene_manager.scene_registry, scene_id)
 	if err != .NONE {
 		return .OBJECT_NOT_FOUND
 	}
@@ -104,14 +108,14 @@ destroy_by_id :: proc(scene_id: SceneId) -> error.Code {
 		return .SCENE_IS_ACTIVE
 	}
 
-	scene, present := registry.get_item(&scene_manager.scene_registry, cast(registry.RegistryId)scene_id)
+	scene, present := registry.get_item(&scene_manager.scene_registry, scene_id)
 
 	if present != .NONE {
 		return present
 	}
 
 	delete_key(&scene_manager.scene_names, scene.name)
-	registry.destroy_item(&scene_manager.scene_registry, cast(registry.RegistryId)scene_id)
+	registry.destroy_item(&scene_manager.scene_registry, scene_id)
 	return .NONE
 }
 
@@ -129,7 +133,7 @@ destroy_by_name :: proc(name: string) -> error.Code {
  */
 add_entity :: proc(scene_id: SceneId, entity_id: entity.EntityId) -> error.Code {
 	assert(scene_manager.initialized, "add_entity: scene manager not initialized, call init_scene_manager first")
-	scene, err := registry.get_item(&scene_manager.scene_registry, cast(registry.RegistryId)scene_id)
+	scene, err := registry.get_item(&scene_manager.scene_registry, scene_id)
 	if err != .NONE {
 		return err
 	}
@@ -139,7 +143,7 @@ add_entity :: proc(scene_id: SceneId, entity_id: entity.EntityId) -> error.Code 
 
 remove_entity :: proc(scene_id: SceneId, entity_id: entity.EntityId) -> error.Code {
 	assert(scene_manager.initialized, "remove_entity: scene manager not initialized, call init_scene_manager first")
-	scene, err := registry.get_item(&scene_manager.scene_registry, cast(registry.RegistryId)scene_id)
+	scene, err := registry.get_item(&scene_manager.scene_registry, scene_id)
 	if err != .NONE {
 		return err
 	}
@@ -160,7 +164,7 @@ remove_entity :: proc(scene_id: SceneId, entity_id: entity.EntityId) -> error.Co
  */
 get_entities :: proc(scene_id: SceneId) -> ([]entity.EntityId, error.Code) {
 	assert(scene_manager.initialized, "get_entities: scene manager not initialized, call init_scene_manager first")
-	scene, err := registry.get_item(&scene_manager.scene_registry, cast(registry.RegistryId)scene_id)
+	scene, err := registry.get_item(&scene_manager.scene_registry, scene_id)
 	if err != .NONE {
 		return nil, err
 	}
