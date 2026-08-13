@@ -13,7 +13,7 @@ SceneId :: distinct int
 Scene :: struct {
 	name: string,
 	world_id: b3.WorldId,
-	entities: [dynamic]entity.EntityId
+	entities: [dynamic]entity.Id
 }
 
 @(private)
@@ -131,7 +131,7 @@ destroy_by_name :: proc(name: string) -> error.Code {
 /*
  * TODO INCOMPLETE doesnt deal with physics side
  */
-add_entity :: proc(scene_id: SceneId, entity_id: entity.EntityId) -> error.Code {
+add_entity :: proc(scene_id: SceneId, entity_id: entity.Id) -> error.Code {
 	assert(scene_manager.initialized, "add_entity: scene manager not initialized, call init_scene_manager first")
 	scene, err := registry.get_item(&scene_manager.scene_registry, scene_id)
 	if err != .NONE {
@@ -141,7 +141,7 @@ add_entity :: proc(scene_id: SceneId, entity_id: entity.EntityId) -> error.Code 
 	return .NONE
 }
 
-remove_entity :: proc(scene_id: SceneId, entity_id: entity.EntityId) -> error.Code {
+remove_entity :: proc(scene_id: SceneId, entity_id: entity.Id) -> error.Code {
 	assert(scene_manager.initialized, "remove_entity: scene manager not initialized, call init_scene_manager first")
 	scene, err := registry.get_item(&scene_manager.scene_registry, scene_id)
 	if err != .NONE {
@@ -162,7 +162,7 @@ remove_entity :: proc(scene_id: SceneId, entity_id: entity.EntityId) -> error.Co
  * scene (the backing array may reallocate) or until the scene is destroyed.
  * Copy it (e.g. slice.clone) if you need to retain it across those calls.
  */
-get_entities :: proc(scene_id: SceneId) -> ([]entity.EntityId, error.Code) {
+get_entities :: proc(scene_id: SceneId) -> ([]entity.Id, error.Code) {
 	assert(scene_manager.initialized, "get_entities: scene manager not initialized, call init_scene_manager first")
 	scene, err := registry.get_item(&scene_manager.scene_registry, scene_id)
 	if err != .NONE {

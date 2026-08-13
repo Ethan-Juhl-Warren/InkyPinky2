@@ -33,7 +33,7 @@ RigidBody :: struct {
 
 @(private)
 RigidBodyManager :: struct {
-	rigidbody_registry: registry.Registry(RigidBody, entity.EntityId),
+	rigidbody_registry: registry.Registry(RigidBody, entity.Id),
 	initilized: bool
 }
 
@@ -47,7 +47,7 @@ destroy_rigidbody_manager :: proc() {
 	rigidbody_manager.initilized = false
 }
 
-create_rigidbody :: proc(entity_id: entity.EntityId, bodydef: b3.BodyDef) -> error.Code {
+create_rigidbody :: proc(entity_id: entity.Id, bodydef: b3.BodyDef) -> error.Code {
 	assert(rigidbody_manager.initilized, "create_rigidbody: rigidbody_manager not intilized, call init_rigid_bosy_manager")
 	rigidbody: RigidBody
 	rigidbody.internal_rigidbody_id = b3.nullBodyId
@@ -60,7 +60,7 @@ create_rigidbody :: proc(entity_id: entity.EntityId, bodydef: b3.BodyDef) -> err
 	return .NONE
 }
 
-destroy_rigidbody :: proc(entity_id: entity.EntityId) -> error.Code {
+destroy_rigidbody :: proc(entity_id: entity.Id) -> error.Code {
 	assert(rigidbody_manager.initilized, "destroy_rigidbody: rigidbody manager not initialized, call init_rigidbosy_manager first")
 
 	rigidbody, present := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
@@ -72,7 +72,7 @@ destroy_rigidbody :: proc(entity_id: entity.EntityId) -> error.Code {
 	return .NONE
 }
 
-realize_rigidbody :: proc(entity_id: entity.EntityId, world_id: b3.WorldId) -> error.Code {
+realize_rigidbody :: proc(entity_id: entity.Id, world_id: b3.WorldId) -> error.Code {
 	rigidbody, err := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
 	if err != .NONE {
 		return err
@@ -81,7 +81,7 @@ realize_rigidbody :: proc(entity_id: entity.EntityId, world_id: b3.WorldId) -> e
 	return .NONE
 }
 
-unrealize_rigidbody :: proc(entity_id: entity.EntityId) -> error.Code {
+unrealize_rigidbody :: proc(entity_id: entity.Id) -> error.Code {
 	rigidbody, err := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
 	if err != .NONE {
 		return err
