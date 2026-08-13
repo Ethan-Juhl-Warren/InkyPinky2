@@ -29,6 +29,7 @@ destroy_entity_manager :: proc() {
 	entity_manager.initialized = false
 }
 
+
 create :: proc(name: string) -> (Id, error.Code) {
 	assert(entity_manager.initialized, "create: entity manager not intitialized, call init_entity_manager first")
 	_, exists := entity_manager.entity_names[name]
@@ -43,7 +44,7 @@ create :: proc(name: string) -> (Id, error.Code) {
 		return registry.INVALID_ID, err
 	}
 	entity_manager.entity_names[name] = entity_manager.next_id
-	return cast(Id) 1, .NONE
+	return entity_manager.next_id, .NONE
 }
 
 // TODO Needs some resource manager cleanup

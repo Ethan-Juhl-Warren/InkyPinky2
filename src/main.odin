@@ -2,11 +2,18 @@ package main
 
 import rl "vendor:raylib"
 import b3 "vendor:box3d"
+import cmpt "component"
+import "entity"
 
 main :: proc() {
 	rl.InitWindow(1280, 720, "Box3D + raylib")
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(60)
+
+	cmpt.init_component_managers()
+	defer cmpt.destroy_component_managers()
+
+	main_camera, err := entity.create("main camera") 
 
 	camera := rl.Camera3D{
 		position   = {0, 10, 20},
