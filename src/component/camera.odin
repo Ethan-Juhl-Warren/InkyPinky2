@@ -163,6 +163,7 @@ main_camera_begin_draw :: proc() -> error.Code {
         return err
     }
     rl.BeginMode3D(camera.rl_camera)
+    return .NONE
 }
 
 /*

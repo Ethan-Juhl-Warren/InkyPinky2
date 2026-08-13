@@ -61,7 +61,7 @@ create_rigidbody :: proc(entity_id: entity.Id, bodydef: b3.BodyDef) -> error.Cod
 }
 
 destroy_rigidbody :: proc(entity_id: entity.Id) -> error.Code {
-	assert(rigidbody_manager.initilized, "destroy_rigidbody: rigidbody manager not initialized, call init_rigidbosy_manager first")
+	assert(rigidbody_manager.initilized, "destroy_rigidbody: rigidbody manager not initialized, call init_rigidbody_manager first")
 
 	rigidbody, present := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
 
