@@ -3,6 +3,8 @@ package main
 import rl "vendor:raylib"
 import b3 "vendor:box3d"
 import cmpt "component"
+import "error"
+import "core:fmt"
 import "entity"
 
 main :: proc() {
@@ -10,18 +12,27 @@ main :: proc() {
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(60)
 
+	// Init entity manager
+	entity.init_entity_manager()
+	defer entity.destroy_entity_manager()
+
+	// Init Components
 	cmpt.init_component_managers()
 	defer cmpt.destroy_component_managers()
 
 	main_camera, err := entity.create("main camera") 
-
+	cmpt.transform_create(main_camera, {0, 10, 20}, {1, 1, 1}, {0, 0, 0})
+	cmpt.camera_create(main_camera, {0, 0, 0}, {0, 1, 0}, 45, .PERSPECTIVE)
+	cmpt.set_main_camera(main_camera)
+	
+	/*
 	camera := rl.Camera3D{
 		position   = {0, 10, 20},
 		target     = {0, 0, 0},
 		up         = {0, 1, 0},
 		fovy       = 45,
 		projection = rl.CameraProjection.PERSPECTIVE,
-	}
+	}*/
 
 	// --- Box3D world ---
 	world_def := b3.DefaultWorldDef()
@@ -58,10 +69,19 @@ main :: proc() {
 	for !rl.WindowShouldClose() {
 		b3.World_Step(world_id, 1.0 / 60.0, 4)
 
+		handle_input(main_camera)
+
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.SKYBLUE)
-		rl.BeginMode3D(camera)
+		rl.DrawFPS(100, 100)
 
+		//rl.BeginMode3D(camera)
+		err := cmpt.main_camera_begin_draw()
+		if err != .NONE {
+			fmt.println(error.get_error_message(err))
+		}
+		defer cmpt.camera_end_draw()
+		
 		gt := b3.Body_GetTransform(ground_id)
 		ground_mat := rl.MatrixCompose(rl.Vector3(gt.p), rl.Quaternion(gt.q), {1, 1, 1})
 		rl.DrawMesh(ground_model.meshes[0], ground_model.materials[0], ground_mat)
@@ -70,7 +90,38 @@ main :: proc() {
 		box_mat := rl.MatrixCompose(rl.Vector3(bt.p), rl.Quaternion(bt.q), {1, 1, 1})
 		rl.DrawMesh(box_model.meshes[0], box_model.materials[0], box_mat)
 
-		rl.EndMode3D()
+		//rl.EndMode3D()
 		rl.EndDrawing()
 	}
+}
+
+handle_input :: proc(main_camera: entity.Id) {
+		cam_pos, err2 := cmpt.transform_get_position(main_camera)
+		fmt.print(cam_pos, "\n")
+		if rl.IsKeyDown(rl.KeyboardKey.W) {
+			curr_pos, err := cmpt.transform_get_position(main_camera)
+			cmpt.transform_set_position(main_camera, curr_pos + {0,0,1})
+		}
+		if rl.IsKeyDown(rl.KeyboardKey.S) {
+			curr_pos, err := cmpt.transform_get_position(main_camera)
+			cmpt.transform_set_position(main_camera, curr_pos + {0,0,-1})
+		}
+
+		if rl.IsKeyDown(rl.KeyboardKey.A) {
+			curr_pos, err := cmpt.transform_get_position(main_camera)
+			cmpt.transform_set_position(main_camera, curr_pos + {1,0,0})
+		}
+		if rl.IsKeyDown(rl.KeyboardKey.D) {
+			curr_pos, err := cmpt.transform_get_position(main_camera)
+			cmpt.transform_set_position(main_camera, curr_pos + {-1,0,0})
+		}
+
+		if rl.IsKeyDown(rl.KeyboardKey.SPACE) {
+			curr_pos, err := cmpt.transform_get_position(main_camera)
+			cmpt.transform_set_position(main_camera, curr_pos + {0,1,0})
+		}
+		if rl.IsKeyDown(rl.KeyboardKey.LEFT_SHIFT) {
+			curr_pos, err := cmpt.transform_get_position(main_camera)
+			cmpt.transform_set_position(main_camera, curr_pos + {0, -1,0})
+		}
 }

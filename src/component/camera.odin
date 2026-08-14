@@ -3,6 +3,7 @@ import "../entity"
 import "../registry"
 import "../error"
 import rl "vendor:raylib"
+import "core:fmt"
 
 @(private) camera_manager: CameraManager
 
@@ -25,7 +26,7 @@ CameraManager :: struct {
 
 init_camera_manager :: proc() {
     registry.init_registry(&camera_manager.camera_registry, nil)
-    transform_manager.initilized = true
+    camera_manager.initilized = true
 }
 
 destroy_camera_manager :: proc() {
@@ -158,11 +159,18 @@ main_camera_begin_draw :: proc() -> error.Code {
     if camera_manager.main_camera <= registry.UNASSIGNED_ID {
         return .INVALID_CAMERA
     }
-    camera, err := registry.get_item(&camera_manager.camera_registry, camera_manager.main_camera)
-    if err != .NONE {
-        return err
+    camera, err1 := registry.get_item(&camera_manager.camera_registry, camera_manager.main_camera)
+    if err1 != .NONE {
+        return err1
     }
-    rl.BeginMode3D(camera.rl_camera)
+    pos, err2 := transform_get_position(camera_manager.main_camera)
+    if err2 != .NONE {
+        return err2
+    }
+    
+    c := camera.rl_camera
+    c.position = pos
+    rl.BeginMode3D(c)
     return .NONE
 }
 
