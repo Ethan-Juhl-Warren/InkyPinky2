@@ -3,7 +3,6 @@ import "../entity"
 import "../registry"
 import "../error"
 import rl "vendor:raylib"
-import "core:fmt"
 
 @(private) camera_manager: CameraManager
 
