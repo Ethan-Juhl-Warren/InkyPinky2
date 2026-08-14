@@ -38,56 +38,50 @@ RigidBodyManager :: struct {
 }
 
 init_rigidbody_manager :: proc() {
+	if rigidbody_manager.initilized {
+		error.printf(.MANAGER_ALREADY_INITILIZED, "intilizing rigidbody manager")
+		return
+	}
 	registry.init_registry(&rigidbody_manager.rigidbody_registry, _free_rigidbody)
 	rigidbody_manager.initilized = true
 }
 
 destroy_rigidbody_manager :: proc() {
+	if !rigidbody_manager.initilized {
+		error.printf(.DESTROYING_UNINITILIZED_MANAGER, "destroying rigidbody manager")
+		return
+	}
 	registry.destroy_registry(&rigidbody_manager.rigidbody_registry)
 	rigidbody_manager.initilized = false
 }
 
-create_rigidbody :: proc(entity_id: entity.Id, bodydef: b3.BodyDef) -> error.Code {
+create_rigidbody :: proc(entity_id: entity.Id, bodydef: b3.BodyDef) {
 	assert(rigidbody_manager.initilized, "create_rigidbody: rigidbody_manager not intilized, call init_rigid_bosy_manager")
 	rigidbody: RigidBody
 	rigidbody.internal_rigidbody_id = b3.nullBodyId
 	rigidbody.internal_bodydef = bodydef
 
 	err := registry.create_item(&rigidbody_manager.rigidbody_registry, entity_id, rigidbody)
-	if err != .NONE {
-		return err
-	}
-	return .NONE
+	error.must(err)
 }
 
-destroy_rigidbody :: proc(entity_id: entity.Id) -> error.Code {
+destroy_rigidbody :: proc(entity_id: entity.Id) {
 	assert(rigidbody_manager.initilized, "destroy_rigidbody: rigidbody manager not initialized, call init_rigidbody_manager first")
-
-	rigidbody, present := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
-
-	if present != .NONE {
-		return present
-	}
+	rigidbody, found := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
+	error.must(found)
 	registry.destroy_item(&rigidbody_manager.rigidbody_registry, entity_id)
-	return .NONE
 }
 
-realize_rigidbody :: proc(entity_id: entity.Id, world_id: b3.WorldId) -> error.Code {
-	rigidbody, err := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
-	if err != .NONE {
-		return err
-	}
+realize_rigidbody :: proc(entity_id: entity.Id, world_id: b3.WorldId) {
+	rigidbody, found := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
+	error.must(found)
 	_realize_rigidbody(rigidbody, world_id)
-	return .NONE
 }
 
-unrealize_rigidbody :: proc(entity_id: entity.Id) -> error.Code {
-	rigidbody, err := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
-	if err != .NONE {
-		return err
-	}
+unrealize_rigidbody :: proc(entity_id: entity.Id) {
+	rigidbody, found := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
+	error.must(found)
 	_unrealize_rigidbody(rigidbody)
-	return .NONE
 }
 
 @(private)

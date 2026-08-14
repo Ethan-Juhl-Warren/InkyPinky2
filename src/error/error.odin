@@ -13,12 +13,15 @@ Code :: enum i32 {
 	NONE = 0,
 	ID_INVALID,
 	OBJECT_NOT_FOUND,
+	OBJECT_ALREADY_EXISTS,
 	SCENE_IS_ACTIVE,
 	NAME_EXISTS,
 	ADDING_CAMERA_TO_ENTITY_WITH_NO_TRANSFORM,
 	INVALID_CAMERA_PROJECTION,
 	NO_MAIN_CAMERA_SET,
-	INVALID_CAMERA
+	INVALID_CAMERA,
+	MANAGER_ALREADY_INITILIZED,
+	DESTROYING_UNINITILIZED_MANAGER,
 }
 
 /*
@@ -63,6 +66,11 @@ INFO := [Code]Info {
 		hint = "the ID is well formed but nothing is registered under it, it may already have been destroyed",
 		severity = .ERROR,
 	},
+	.OBJECT_ALREADY_EXISTS = {
+		message = "Object already exists on entity",
+		hint = "registires cannot have multiple objects indexed by the same key",
+		severity = .ERROR
+	},
 	.SCENE_IS_ACTIVE = {
 		message = "Cannot delete active scene",
 		hint = "switch to another scene with scene.set_active first",
@@ -93,6 +101,15 @@ INFO := [Code]Info {
 		hint = "the entity has no camera component, add one with camera_create",
 		severity = .ERROR,
 	},
+	.MANAGER_ALREADY_INITILIZED = {
+		message = "Attempted to intilize a manager that is already intilized",
+		hint = "only intilize managers if they are unititilized or after they have been destroyed",
+		severity = .WARNING,
+	},
+	.DESTROYING_UNINITILIZED_MANAGER = {
+		message = "Attempted to destroy a manager that is unitinilized",
+		hint = "do not call destroy on a uninitilized manager"
+	}
 }
 
 /*

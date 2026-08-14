@@ -50,6 +50,12 @@ get_item :: proc(registry: ^Registry($T, $K), item_id: K) -> (^T, error.Code) {
 
 create_item :: proc(registry: ^Registry($T, $K), item_id: K, #by_ptr item: T) -> error.Code {
 	assert(registry != nil, "create_item: cannot create item on null registry")
+	if item_id <= INVALID_ID {
+		return .ID_INVALID
+	}
+	if item_id in registry.slot_of {
+		return .OBJECT_ALREADY_EXISTS
+	}
 	append(&registry.items, item)
 	append(&registry.id_of, item_id)
 	registry.slot_of[item_id] = len(registry.items) - 1

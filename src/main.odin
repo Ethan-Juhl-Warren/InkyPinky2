@@ -4,7 +4,6 @@ import rl "vendor:raylib"
 import b3 "vendor:box3d"
 import cmpt "component"
 import "error"
-import "core:fmt"
 import "entity"
 
 main :: proc() {
@@ -20,11 +19,11 @@ main :: proc() {
 	cmpt.init_component_managers()
 	defer cmpt.destroy_component_managers()
 
-	main_camera, err := entity.create("main camera") 
+	main_camera := entity.create("main camera") 
 	cmpt.transform_create(main_camera, {0, 10, 20}, {1, 1, 1}, {0, 0, 0})
 	cmpt.camera_create(main_camera, {0, 0, 0}, {0, 1, 0}, 45, .PERSPECTIVE)
-	cmpt.set_main_camera(main_camera)
-	
+	camera_error := cmpt.set_main_camera(main_camera)
+	error.must(camera_error)
 
 	// --- Box3D world ---
 	world_def := b3.DefaultWorldDef()
@@ -84,32 +83,25 @@ main :: proc() {
 }
 
 handle_input :: proc(main_camera: entity.Id) {
-		cam_pos, err2 := cmpt.transform_get_position(main_camera)
-		fmt.print(cam_pos, "\n")
+		curr_pos := cmpt.transform_get_position(main_camera)
 		if rl.IsKeyDown(rl.KeyboardKey.W) {
-			curr_pos, err := cmpt.transform_get_position(main_camera)
 			cmpt.transform_set_position(main_camera, curr_pos + {0,0,1})
 		}
 		if rl.IsKeyDown(rl.KeyboardKey.S) {
-			curr_pos, err := cmpt.transform_get_position(main_camera)
 			cmpt.transform_set_position(main_camera, curr_pos + {0,0,-1})
 		}
 
 		if rl.IsKeyDown(rl.KeyboardKey.A) {
-			curr_pos, err := cmpt.transform_get_position(main_camera)
 			cmpt.transform_set_position(main_camera, curr_pos + {1,0,0})
 		}
 		if rl.IsKeyDown(rl.KeyboardKey.D) {
-			curr_pos, err := cmpt.transform_get_position(main_camera)
 			cmpt.transform_set_position(main_camera, curr_pos + {-1,0,0})
 		}
 
 		if rl.IsKeyDown(rl.KeyboardKey.SPACE) {
-			curr_pos, err := cmpt.transform_get_position(main_camera)
 			cmpt.transform_set_position(main_camera, curr_pos + {0,1,0})
 		}
 		if rl.IsKeyDown(rl.KeyboardKey.LEFT_SHIFT) {
-			curr_pos, err := cmpt.transform_get_position(main_camera)
 			cmpt.transform_set_position(main_camera, curr_pos + {0, -1,0})
 		}
 }

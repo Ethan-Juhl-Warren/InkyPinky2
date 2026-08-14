@@ -30,63 +30,55 @@ destroy_entity_manager :: proc() {
 }
 
 
-create :: proc(name: string) -> (Id, error.Code) {
+create :: proc(name: string) -> Id {
 	assert(entity_manager.initialized, "create: entity manager not intitialized, call init_entity_manager first")
-	_, exists := entity_manager.entity_names[name]
-	if exists {
-		return registry.INVALID_ID, error.Code.NAME_EXISTS
+	_, found := entity_manager.entity_names[name]
+	if found {
+		error.must(.NAME_EXISTS)
 	}
 	name := strings.clone(name)
 
 	entity_manager.next_id += 1
 	err := registry.create_item(&entity_manager.entity_registry, entity_manager.next_id, name)
-	if err != .NONE {
-		return registry.INVALID_ID, err
-	}
+	error.must(err)
 	entity_manager.entity_names[name] = entity_manager.next_id
-	return entity_manager.next_id, .NONE
+	return entity_manager.next_id
 }
 
 // TODO Needs some resource manager cleanup
-destroy_by_id :: proc(entity_id: Id) -> error.Code {
+destroy_by_id :: proc(entity_id: Id) {
 	assert(entity_manager.initialized, "destroy_by_id: entity manager not initialized, call init_entity_manager first")
 
-	entity, present := registry.get_item(&entity_manager.entity_registry, entity_id)
-
-	if present != .NONE {
-		return present
-	}
+	entity, found := registry.get_item(&entity_manager.entity_registry, entity_id)
+	error.must(found)
 
 	delete_key(&entity_manager.entity_names, entity^)
 	registry.destroy_item(&entity_manager.entity_registry, entity_id)
-	return .NONE
 }
 
-destroy_by_name :: proc(name: string) -> error.Code {
+destroy_by_name :: proc(name: string) {
 	assert(entity_manager.initialized, "destroy_by_name: entity manager not initialized, call init_entity_manager first")
-	entity_id, present := entity_manager.entity_names[name]
-	if !present {
-		return .OBJECT_NOT_FOUND
+	entity_id, found := entity_manager.entity_names[name]
+	if !found {
+		error.must(.OBJECT_NOT_FOUND)
 	}
-	return destroy_by_id(entity_id)
+	destroy_by_id(entity_id)
 }
 
-get_by_name :: proc(name: string) -> (Id, error.Code) {
+get_by_name :: proc(name: string) -> Id {
 	assert(entity_manager.initialized, "get_by_name: entity manager not initialized, call init_entity_manager first")
 	enity, valid := entity_manager.entity_names[name]
 	if !valid {
-		return registry.INVALID_ID, error.Code.OBJECT_NOT_FOUND
+		error.must(.OBJECT_NOT_FOUND)
 	}
-	return enity, error.Code.NONE
+	return enity
 }
 
-get_entity_name :: proc(entity_id: Id) -> (string, error.Code) {
+get_entity_name :: proc(entity_id: Id) -> string {
 	assert(entity_manager.initialized, "get_entity_name: entity manager not initialized, call init_entity_manager first")
 	entity_name, found := registry.get_item(&entity_manager.entity_registry, entity_id)
-	if found != error.Code.NONE {
-		return "", found
-	}
-	return entity_name^, error.Code.NONE
+	error.must(found)
+	return entity_name^
 }
 
 /*

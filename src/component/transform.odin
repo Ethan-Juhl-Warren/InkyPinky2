@@ -18,16 +18,24 @@ TransformManager :: struct {
 }
 
 init_transform_manager :: proc() {
+	if transform_manager.initilized {
+		error.printf(.MANAGER_ALREADY_INITILIZED, "initilizing transform manager")
+		return
+	}
 	registry.init_registry(&transform_manager.transform_registry, nil)
 	transform_manager.initilized = true
 }
 
 destroy_transform_manager :: proc() {
+	if !transform_manager.initilized {
+		error.printf(.DESTROYING_UNINITILIZED_MANAGER, "destroying transform manager")
+		return
+	}
 	registry.destroy_registry(&transform_manager.transform_registry)
 	transform_manager.initilized = false
 }
 
-transform_create :: proc(entity_id: entity.Id, position: [3]f32 = {0,0,0}, scale: [3]f32 = {1,1,1}, rotation: [3]f32 = {0,0,0}) -> (error.Code) {
+transform_create :: proc(entity_id: entity.Id, position: [3]f32 = {0,0,0}, scale: [3]f32 = {1,1,1}, rotation: [3]f32 = {0,0,0}) {
 	assert(transform_manager.initilized, "create: transform manager not intitialized, call init_transform_manager first")
 	transform: Transform
 	transform.position = position
@@ -35,78 +43,57 @@ transform_create :: proc(entity_id: entity.Id, position: [3]f32 = {0,0,0}, scale
 	transform.scale = scale
 
 	err := registry.create_item(&transform_manager.transform_registry, entity_id, transform)
-	if err != .NONE {
-		return err
-	}
-	return .NONE
+	error.must(err)
 }
 
-transform_destroy :: proc(entiy_id: entity.Id) -> error.Code {
+transform_destroy :: proc(entiy_id: entity.Id) {
 	assert(transform_manager.initilized, "destroy: transform manager not initialized, call init_transform_manager first")
 
 	transform, present := registry.get_item(&transform_manager.transform_registry, entiy_id)
 
-	if present != .NONE {
-		return present
-	}
+	error.must(present)
 
 	registry.destroy_item(&transform_manager.transform_registry, entiy_id)
-	return .NONE
 }
 
-transform_get_position :: proc(entity_id: entity.Id) -> ([3]f32, error.Code) {
+transform_get_position :: proc(entity_id: entity.Id) -> [3]f32 {
 	assert(transform_manager.initilized, "get_position: transform manager not initialized, call init_transform_manager first")
 	entity, found := registry.get_item(&transform_manager.transform_registry, entity_id)
-	if found != .NONE {
-		return {0,0,0}, found
-	}
-	return entity.position, .NONE
+	error.must(found)
+	return entity.position
 }
 
-transform_get_scale :: proc(entity_id: entity.Id) -> ([3]f32, error.Code) {
+transform_get_scale :: proc(entity_id: entity.Id) -> [3]f32 {
 	assert(transform_manager.initilized, "get_scale: transform manager not initialized, call init_transform_manager first")
 	entity, found := registry.get_item(&transform_manager.transform_registry, entity_id)
-	if found != .NONE {
-		return {0,0,0}, found
-	}
-	return entity.scale, .NONE
+	error.must(found)
+	return entity.scale
 }
 
-transform_get_rotation :: proc(entity_id: entity.Id) -> ([3]f32, error.Code) {
+transform_get_rotation :: proc(entity_id: entity.Id) -> [3]f32 {
 	assert(transform_manager.initilized, "get_rotation: transform manager not initialized, call init_transform_manager first")
 	entity, found := registry.get_item(&transform_manager.transform_registry, entity_id)
-	if found != .NONE {
-		return {0,0,0}, found
-	}
-	return entity.rotation, .NONE
+	error.must(found)
+	return entity.rotation
 }
 
-transform_set_position :: proc(entity_id: entity.Id, position: [3]f32) -> error.Code {
+transform_set_position :: proc(entity_id: entity.Id, position: [3]f32) {
 	assert(transform_manager.initilized, "get_position: transform manager not initialized, call init_transform_manager first")
 	entity, found := registry.get_item(&transform_manager.transform_registry, entity_id)
-	if found != .NONE {
-		return found
-	}
+	error.must(found)
 	entity.position = position
-	return .NONE
 }
 
-transform_set_scale :: proc(entity_id: entity.Id, scale: [3]f32) -> error.Code {
+transform_set_scale :: proc(entity_id: entity.Id, scale: [3]f32) {
 	assert(transform_manager.initilized, "get_scale: transform manager not initialized, call init_transform_manager first")
 	entity, found := registry.get_item(&transform_manager.transform_registry, entity_id)
-	if found != .NONE {
-		return found
-	}
+	error.must(found)
 	entity.scale = scale
-	return .NONE
 }
 
-transform_set_rotation :: proc(entity_id: entity.Id, rotation: [3]f32) -> error.Code {
+transform_set_rotation :: proc(entity_id: entity.Id, rotation: [3]f32) {
 	assert(transform_manager.initilized, "get_rotation: transform manager not initialized, call init_transform_manager first")
 	entity, found := registry.get_item(&transform_manager.transform_registry, entity_id)
-	if found != .NONE {
-		return found
-	}
+	error.must(found)
 	entity.rotation = rotation
-	return .NONE
 }
