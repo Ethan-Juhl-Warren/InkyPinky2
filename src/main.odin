@@ -25,14 +25,6 @@ main :: proc() {
 	cmpt.camera_create(main_camera, {0, 0, 0}, {0, 1, 0}, 45, .PERSPECTIVE)
 	cmpt.set_main_camera(main_camera)
 	
-	/*
-	camera := rl.Camera3D{
-		position   = {0, 10, 20},
-		target     = {0, 0, 0},
-		up         = {0, 1, 0},
-		fovy       = 45,
-		projection = rl.CameraProjection.PERSPECTIVE,
-	}*/
 
 	// --- Box3D world ---
 	world_def := b3.DefaultWorldDef()
@@ -75,7 +67,6 @@ main :: proc() {
 		rl.ClearBackground(rl.SKYBLUE)
 		rl.DrawFPS(100, 100)
 
-		//rl.BeginMode3D(camera)
 		err := cmpt.main_camera_begin_draw()
 		if err != .NONE {
 			fmt.println(error.get_error_message(err))
