@@ -106,6 +106,13 @@ camera_set_fovy :: proc(entity_id: entity.Id, fovy: f32) {
     camera.rl_camera.fovy = fovy
 }
 
+camera_set_target :: proc(entity_id: entity.Id, target: [3]f32) {
+    assert(camera_manager.initilized, "camera_set_target: camera manager not initilized, call init_camera_manager first")
+    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
+    error.must(found)
+    camera.rl_camera.target = target
+}
+
 camera_set_projection :: proc(entity_id: entity.Id, projection: CameraProjection) {
     assert(camera_manager.initilized, "camera_set_projection: camera manager not initilized, call init_camera_manager first")
     camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)

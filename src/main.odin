@@ -3,6 +3,7 @@ package main
 import rl "vendor:raylib"
 import b3 "vendor:box3d"
 import cmpt "component"
+import "core:math"
 import "error"
 import "entity"
 
@@ -56,11 +57,11 @@ main :: proc() {
 	box_model := rl.LoadModelFromMesh(rl.GenMeshCube(1, 1, 1))
 	defer rl.UnloadModel(box_model)
 	box_model.materials[0].maps[rl.MaterialMapIndex.ALBEDO].color = rl.RED
-
+	
 	for !rl.WindowShouldClose() {
 		b3.World_Step(world_id, 1.0 / 60.0, 4)
-
-		handle_input(main_camera)
+		cam_pos := cmpt.transform_get_position(main_camera)
+		handle_input(main_camera, cam_pos)
 
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.SKYBLUE)
@@ -82,26 +83,25 @@ main :: proc() {
 	}
 }
 
-handle_input :: proc(main_camera: entity.Id) {
-		curr_pos := cmpt.transform_get_position(main_camera)
-		if rl.IsKeyDown(rl.KeyboardKey.W) {
-			cmpt.transform_set_position(main_camera, curr_pos + {0,0,1})
-		}
-		if rl.IsKeyDown(rl.KeyboardKey.S) {
-			cmpt.transform_set_position(main_camera, curr_pos + {0,0,-1})
-		}
+handle_input :: proc(main_camera: entity.Id, curr_pos: [3]f32) {
+	if rl.IsKeyDown(rl.KeyboardKey.W) {
+		cmpt.transform_set_position(main_camera, curr_pos + {0,0,1})
+	}
+	if rl.IsKeyDown(rl.KeyboardKey.S) {
+		cmpt.transform_set_position(main_camera, curr_pos + {0,0,-1})
+	}
 
-		if rl.IsKeyDown(rl.KeyboardKey.A) {
-			cmpt.transform_set_position(main_camera, curr_pos + {1,0,0})
-		}
-		if rl.IsKeyDown(rl.KeyboardKey.D) {
-			cmpt.transform_set_position(main_camera, curr_pos + {-1,0,0})
-		}
+	if rl.IsKeyDown(rl.KeyboardKey.A) {
+		cmpt.transform_set_position(main_camera, curr_pos + {1,0,0})
+	}
+	if rl.IsKeyDown(rl.KeyboardKey.D) {
+		cmpt.transform_set_position(main_camera, curr_pos + {-1,0,0})
+	}
 
-		if rl.IsKeyDown(rl.KeyboardKey.SPACE) {
-			cmpt.transform_set_position(main_camera, curr_pos + {0,1,0})
-		}
-		if rl.IsKeyDown(rl.KeyboardKey.LEFT_SHIFT) {
-			cmpt.transform_set_position(main_camera, curr_pos + {0, -1,0})
-		}
+	if rl.IsKeyDown(rl.KeyboardKey.SPACE) {
+		cmpt.transform_set_position(main_camera, curr_pos + {0,1,0})
+	}
+	if rl.IsKeyDown(rl.KeyboardKey.LEFT_SHIFT) {
+		cmpt.transform_set_position(main_camera, curr_pos + {0, -1,0})
+	}
 }
