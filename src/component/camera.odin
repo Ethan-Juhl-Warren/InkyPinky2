@@ -13,7 +13,8 @@ CameraProjection :: enum {
 }
 
 Camera :: struct {
-    rl_camera: rl.Camera3D
+    fovy: f32,
+    projection: CameraProjection,
 }
 
 @(private)
@@ -43,25 +44,10 @@ destroy_camera_manager :: proc() {
 
 camera_create :: proc(entity_id: entity.Id, target: [3]f32, up: [3]f32, fovy: f32, projection: CameraProjection) -> error.Code {
     assert(camera_manager.initilized, "camera_create: camera manager not initilized, call init_camera_manager first")
-    camera: Camera
-
-    proj: rl.CameraProjection
-    if projection == CameraProjection.PERSPECTIVE {
-        proj = rl.CameraProjection.PERSPECTIVE
-    } else if projection == CameraProjection.ORTHOGRAPHIC {
-        proj = rl.CameraProjection.ORTHOGRAPHIC
-    } else {
-        error.must(.ADDING_CAMERA_TO_ENTITY_WITH_NO_TRANSFORM)
-    }
-
     position := transform_get_position(entity_id)
-
-    camera.rl_camera = rl.Camera3D {
-        position = position,
-        target = target,
-        up = up,
-        fovy = fovy,
-        projection = proj
+    camera: Camera = {
+        fovy,
+        projection
     }
 
     err := registry.create_item(&camera_manager.camera_registry, entity_id, camera)
@@ -82,7 +68,7 @@ camera_get_fovy :: proc(entity_id: entity.Id) -> f32 {
     assert(camera_manager.initilized, "camera_get_fovy: camera manager not initilized, call init_camera_manager first")
     camera, err := registry.get_item(&camera_manager.camera_registry, entity_id)
     error.must(err)
-    return camera.rl_camera.fovy
+    return camera.fovy
 }
 
 camera_get_projection :: proc(entity_id: entity.Id) -> CameraProjection {
@@ -90,41 +76,21 @@ camera_get_projection :: proc(entity_id: entity.Id) -> CameraProjection {
     camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
     error.must(found)
 
-    if camera.rl_camera.projection == rl.CameraProjection.PERSPECTIVE {
-        return CameraProjection.PERSPECTIVE
-    } else if camera.rl_camera.projection == rl.CameraProjection.ORTHOGRAPHIC {
-        return CameraProjection.ORTHOGRAPHIC
-    } else {
-        return CameraProjection.NONE
-    }
+    return camera.projection
 }
 
 camera_set_fovy :: proc(entity_id: entity.Id, fovy: f32) {
     assert(camera_manager.initilized, "camera_set_fovy: camera manager not initilized, call init_camera_manager first")
     camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
     error.must(found)
-    camera.rl_camera.fovy = fovy
-}
-
-camera_set_target :: proc(entity_id: entity.Id, target: [3]f32) {
-    assert(camera_manager.initilized, "camera_set_target: camera manager not initilized, call init_camera_manager first")
-    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
-    error.must(found)
-    camera.rl_camera.target = target
+    camera.fovy = fovy
 }
 
 camera_set_projection :: proc(entity_id: entity.Id, projection: CameraProjection) {
     assert(camera_manager.initilized, "camera_set_projection: camera manager not initilized, call init_camera_manager first")
     camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
     error.must(found)
-
-    if camera.rl_camera.projection == rl.CameraProjection.PERSPECTIVE {
-        camera.rl_camera.projection = rl.CameraProjection.PERSPECTIVE
-    } else if camera.rl_camera.projection == rl.CameraProjection.ORTHOGRAPHIC {
-        camera.rl_camera.projection = rl.CameraProjection.ORTHOGRAPHIC
-    } else {
-        error.must(.INVALID_CAMERA_PROJECTION)
-    }
+    camera.projection = projection
 }
 
 @(require_results)
@@ -158,9 +124,18 @@ main_camera_begin_draw :: proc() -> error.Code {
     error.must(found)
 
     pos := transform_get_position(camera_manager.main_camera)
-    
-    camera.rl_camera.position = pos
-    rl.BeginMode3D(camera.rl_camera)
+    if camera.projection == .NONE {
+        error.printf(.INVALID_CAMERA_PROJECTION, "Main camera's projection is NONE")
+        return .INVALID_CAMERA_PROJECTION
+    }
+
+    rl.BeginMode3D({
+        fovy = camera.fovy,
+        projection = .PERSPECTIVE if camera.projection == .PERSPECTIVE else .ORTHOGRAPHIC,
+        position = pos,
+        target = {0, 0, 0}, //TEMP
+        up = {0, 1, 0} // TEMP
+    })
     return .NONE
 }
 
