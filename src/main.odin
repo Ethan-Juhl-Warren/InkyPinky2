@@ -21,7 +21,7 @@ main :: proc() {
 	defer cmpt.destroy_component_managers()
 
 	main_camera := entity.create("main camera") 
-	cmpt.transform_create(main_camera, {0, 10, 20}, {1, 1, 1}, {0, 0, 0})
+	cmpt.transform_create(main_camera, {0, 10, 20}, {1, 1, 1}, quaternion(w=1, x=0, y=0, z=0))
 	cmpt.camera_create(main_camera, {0, 0, 0}, {0, 1, 0}, 45, .PERSPECTIVE)
 	camera_error := cmpt.set_main_camera(main_camera)
 	error.must(camera_error)
