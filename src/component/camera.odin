@@ -240,11 +240,7 @@ If the supplied entity_id is invalid, or has no corresponding Camera component t
 */
 camera_get_view_matrix :: proc(entity_id: entity.Id) -> matrix[4,4]f32 {
     assert(camera_manager.initilized, "camera_get_view_matrix: camera manager not initilized, call init_camera_manager first")
-    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
-    error.must(found)
-    pos := transform_get_position(entity_id)
-    up, _, forward := transform_get_orientation_local(entity_id)
-    return linalg.matrix4_look_at(pos, pos + forward, up)
+    return _transform_get_view_matrix(entity_id)
 }
 
 /*

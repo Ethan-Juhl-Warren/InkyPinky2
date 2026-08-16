@@ -741,3 +741,13 @@ transform_interpolate :: proc(entity_id: entity.Id, #by_ptr target: Transform, t
 	transform.scale += (target.scale - transform.scale) * t
 	transform.rotation = linalg.quaternion_normalize0(linalg.quaternion_slerp(transform.rotation, target.rotation, t))
 }
+
+@(private)
+_transform_get_view_matrix :: proc(entity_id: entity.Id) -> matrix[4,4]f32 {
+	assert(camera_manager.initilized, "camera_get_view_matrix: transform manager not initilized, call init_camera_manager first")
+	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	error.must(found)
+	up := linalg.quaternion_mul_vector3(transform.rotation, GLOBAL_UP)
+	forward :=  linalg.quaternion_mul_vector3(transform.rotation, GLOBAL_FORWARD)
+	return linalg.matrix4_look_at(transform.position, transform.position + forward, up)
+}
