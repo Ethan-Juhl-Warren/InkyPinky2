@@ -422,6 +422,32 @@ transform_get_forward_local :: proc(entity_id: entity.Id) -> [3]f32 {
 }
 
 /*
+Returns the entites local orientation
+
+Input:
+- entity_id: entity.Id The id of the entity
+
+Output:
+- up: [3]f32 The local up vector
+- right: [3]f32 The local right vector
+- forward: [3]f32 The local forward vector
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Transform the system will panic
+
+*/
+transform_get_orientation_local :: proc(entity_id: entity.Id) -> (up: [3]f32, right: [3]f32, forward: [3]f32) {
+	assert(transform_manager.initilized, "transform_get_orientation_local: transform manager not initialized, call init_transform_manager first")
+	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	error.must(found)
+	up = linalg.quaternion_mul_vector3(transform.rotation, GLOBAL_UP)
+	right = linalg.quaternion_mul_vector3(transform.rotation, GLOBAL_RIGHT)
+	forward =  linalg.quaternion_mul_vector3(transform.rotation, GLOBAL_FORWARD)
+	return
+}
+
+/*
 Translates the entity's transform by delta
 
 Input:
