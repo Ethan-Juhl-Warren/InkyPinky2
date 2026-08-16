@@ -243,8 +243,7 @@ camera_get_view_matrix :: proc(entity_id: entity.Id) -> matrix[4,4]f32 {
     camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
     error.must(found)
     pos := transform_get_position(entity_id)
-    forward := transform_get_forward_local(entity_id)
-    up := transform_get_up_local(entity_id)
+    up, _, forward := transform_get_orientation_local(entity_id)
     return linalg.matrix4_look_at(pos, pos + forward, up)
 }
 
@@ -286,8 +285,7 @@ main_camera_begin_draw :: proc() {
     error.must(camera_found)
 
     pos := transform_get_position(camera_manager.main_camera)
-    up := transform_get_up_local(camera_manager.main_camera)
-    forward := transform_get_forward_local(camera_manager.main_camera)
+    up, _, forward := transform_get_orientation_local(camera_manager.main_camera)
 
     rl.BeginMode3D({
         fovy = camera.fovy,
@@ -298,14 +296,13 @@ main_camera_begin_draw :: proc() {
     })
 }
 
-camera_begin_draw :: proc(camera_id: entity.Id) {
+camera_begin_draw :: proc(entity_id: entity.Id) {
     assert(camera_manager.initilized, "camera_begin_draw: camera manager not initilized, call init_camera_manager first")
-    camera, camera_found := registry.get_item(&camera_manager.camera_registry, camera_id)
+    camera, camera_found := registry.get_item(&camera_manager.camera_registry, entity_id)
     error.must(camera_found)
 
-    pos := transform_get_position(camera_id)
-    up := transform_get_up_local(camera_id)
-    forward := transform_get_forward_local(camera_id)
+    pos := transform_get_position(entity_id)
+    up, _, forward := transform_get_orientation_local(entity_id)
 
     rl.BeginMode3D({
         fovy = camera.fovy,
