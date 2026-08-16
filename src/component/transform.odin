@@ -162,6 +162,49 @@ transform_get_rotation :: proc(entity_id: entity.Id) -> quaternion128 {
 }
 
 /*
+Returns the rotation pitch yaw roll of the entity specified by entity_id's corresponding Transform component
+
+Inputs:
+- entity_id: entity.Id The id of the entity whose rotation will be returned
+
+Outputs:
+- pitch: f32 The x axis rotation
+- yaw: f32 The y axis rotation
+- roll: f32 The z axis rotation
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Transform component the system will panic
+*/
+transform_get_rotation_pitch_yaw_roll :: proc(entity_id: entity.Id) -> (pitch, yaw, roll: f32) {
+	assert(transform_manager.initilized, "transform_get_rotation_pitch_yaw_roll: transform manager not initialized, call init_transform_manager first")
+	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	error.must(found)
+	return linalg.pitch_yaw_roll_from_quaternion(transform.rotation)
+}
+
+/*
+Returns the rotation axis and angle of the entity specified by entity_id's corresponding Transform component
+
+Inputs:
+- entity_id: entity.Id The id of the entity whose rotation will be returned
+
+Outputs:
+- axis: [3]f32 The axis of rotation
+- angle: f32 The angle of rotation in radians
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Transform component the system will panic
+*/
+transform_get_rotation_angle_axis :: proc(entity_id: entity.Id) -> (angle: f32, axis: [3]f32) {
+	assert(transform_manager.initilized, "transform_get_rotation_angle_axis: transform manager not initialized, call init_transform_manager first")
+	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	error.must(found)
+	return linalg.angle_axis_from_quaternion(transform.rotation)
+}
+
+/*
 Sets the position vector [3]f32 of the entity specified by entity_id's corresponding Transform component
 
 Inputs:
@@ -200,6 +243,7 @@ Sets the rotation quaternion128 of the entity specified by entity_id's correspon
 
 Inputs:
 - entity_id: entity.Id The id of the entity whose rotation will be set
+- rotation: quaternion128 The rotation quaternion
 
 Note:
 
@@ -212,6 +256,45 @@ transform_set_rotation :: proc(entity_id: entity.Id, rotation: quaternion128) {
 	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
 	error.must(found)
 	transform.rotation = linalg.quaternion_normalize0(rotation)
+}
+
+/*
+Sets the rotation quaternion128 of the entity specified by entity_id's corresponding Transform component
+
+Inputs:
+- entity_id: entity.Id The id of the entity whose rotation will be set
+- pitch: f32 The x axis rotation
+- yaw: f32 The y axis rotation
+- roll: f32 The z axis rotation
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Transform component the system will panic
+*/
+transform_set_rotation_pitch_yaw_roll :: proc(entity_id: entity.Id, pitch, yaw, roll: f32) {
+	assert(transform_manager.initilized, "transform_set_rotation_pitch_yaw_roll: transform manager not initialized, call init_transform_manager first")
+	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	error.must(found)
+	transform.rotation = linalg.quaternion_from_pitch_yaw_roll(pitch, yaw, roll)
+}
+
+/*
+Sets the rotation quaternion128 of the entity specified by entity_id's corresponding Transform component
+
+Inputs:
+- entity_id: entity.Id The id of the entity whose rotation will be set
+- axis: [3]f32 The axis of rotation
+- angle: f32 The rotation angle in radians
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Transform component the system will panic
+*/
+transform_set_rotation_angle_axis :: proc(entity_id: entity.Id, angle: f32, axis: [3]f32) {
+	assert(transform_manager.initilized, "transform_set_rotation_angle_axis: transform manager not initialized, call init_transform_manager first")
+	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	error.must(found)
+	transform.rotation = linalg.normalize0(linalg.quaternion_angle_axis(angle, axis))
 }
 
 /*
@@ -449,11 +532,94 @@ If the supplied entity_id is invalid, or has no corresponding Transform the syst
 Rotation is in global co-ordiantes
 The composed result is normalized
 */
-transform_rotate_axis_angle :: proc(entity_id: entity.Id, axis: [3]f32, angle: f32) {
-	assert(transform_manager.initilized, "transform_rotate_axis_angle: transform manager not initialized, call init_transform_manager first")
+transform_rotate_angle_axis :: proc(entity_id: entity.Id, angle: f32, axis: [3]f32) {
+	assert(transform_manager.initilized, "transform_rotate_angle_axis: transform manager not initialized, call init_transform_manager first")
 	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
 	error.must(found)
-	rotation := linalg.quaternion_normalize0(linalg.quaternion_angle_axis(angle, axis))
-	transform.rotation = linalg.quaternion_normalize0(rotation * transform.rotation)
+	rotation_q := linalg.quaternion_angle_axis(angle, axis)
+	transform.rotation = linalg.quaternion_normalize0(rotation_q * transform.rotation)
+}
+
+
+/*
+Rotates the entity's transform by pitch yaw and roll
+
+Input:
+- entity_id: entity.Id The id of the entity
+- pitch: f32 The x axis rotation
+- yaw: f32 The y axis rotation
+- roll: f32 The z axis rotation
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Transform the system will panic
+
+Rotation is in global co-ordiantes
+The composed result is normalized
+*/
+transform_rotate_pitch_yaw_roll :: proc(entity_id: entity.Id, pitch: f32, yaw: f32, roll: f32) {
+	assert(transform_manager.initilized, "transform_rotate_yaw_pitch_roll: transform manager not initialized, call init_transform_manager first")
+	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	error.must(found)
+	rotation_q := linalg.quaternion_from_pitch_yaw_roll_f32(pitch, yaw, roll)
+	transform.rotation = linalg.quaternion_normalize0(rotation_q * transform.rotation)
+}
+
+/*
+Rotates the entity's transform so that its forward axis points at target
+
+Input:
+- entity_id: entity.Id The id of the entity
+- target: [3]f32 The point, in global co-ordinates, to face
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Transform the system will panic
+
+The whole local co-ordinate system is rotated by the shortest arc that brings the
+current forward onto the target, so any existing roll is carried through rather
+than levelled against the global up
+
+If target is the entity's own position the rotation is left unchanged
+The composed result is normalized
+*/
+transform_look_at :: proc(entity_id: entity.Id, target: [3]f32) {
+	assert(transform_manager.initilized, "transform_look_at: transform manager not initialized, call init_transform_manager first")
+	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	error.must(found)
+	direction := target - transform.position
+	if linalg.dot(direction, direction) == 0 {
+		return
+	}
+	current := linalg.quaternion_mul_vector3(transform.rotation, GLOBAL_FORWARD)
+	swing := linalg.quaternion_between_two_vector3(current, linalg.normalize(direction))
+	transform.rotation = linalg.quaternion_normalize0(swing * transform.rotation)
+}
+
+/*
+Rotates the entity's transform so that its forward axis points at target
+
+Input:
+- entity_id: entity.Id The id of the entity
+- target: [3]f32 The point, in global co-ordinates, to face
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Transform the system will panic
+
+If target is the entity's own position the rotation is left unchanged
+The composed result is normalized
+*/
+transform_look_at_leveled :: proc(entity_id: entity.Id, target: [3]f32) {
+	assert(transform_manager.initilized, "transform_look_at_leveled: transform manager not initialized, call init_transform_manager first")
+	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	error.must(found)
+	direction := target - transform.position
+	right := linalg.cross(GLOBAL_UP, direction)
+	forward := linalg.cross(right, GLOBAL_UP)
+	if linalg.dot(forward, forward) == 0 {
+		return
+	}
+	transform.rotation = linalg.quaternion_from_forward_and_up(forward, GLOBAL_UP)
 }
 
