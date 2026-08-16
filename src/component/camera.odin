@@ -24,6 +24,15 @@ CameraManager :: struct {
     initilized: bool
 }
 
+/*
+Initilizes the camera manager, must be called prior to any function that deals with cameras
+a corresponding call to destroy_camera_manager must be called to cleanup
+
+Note:
+
+This individually intilizes the camera manager
+See also init_component_managers, which initilizes all component mangers
+*/
 init_camera_manager :: proc() {
     if camera_manager.initilized {
         error.printf(.MANAGER_ALREADY_INITILIZED, "initilizing camera manager")
@@ -33,6 +42,14 @@ init_camera_manager :: proc() {
     camera_manager.initilized = true
 }
 
+/*
+Destroys the camera manager, must be called at cleanup time to free the camera system
+
+Note:
+
+This individually destroys the camera manager
+See also destroy_component_managers, which destroys all component mangers
+*/
 destroy_camera_manager :: proc() {
     if !camera_manager.initilized {
         error.printf(.DESTROYING_UNINITILIZED_MANAGER, "destroying camera manager")
@@ -42,7 +59,19 @@ destroy_camera_manager :: proc() {
     camera_manager.initilized = false
 }
 
-camera_create :: proc(entity_id: entity.Id, target: [3]f32, up: [3]f32, fovy: f32, projection: CameraProjection) -> error.Code {
+/*
+Creates a Camera component for the entity specified by entity_id
+
+Inputs:
+- entity_id: entity.Id The Id of the entity to create a Transform for
+- fovy: f32 The vertical field of view of the camera
+- projection: CameraProjection The projection mode of the camera
+
+Note:
+
+If the supplied entity_id is invalid the system will panic
+*/
+camera_create :: proc(entity_id: entity.Id, fovy: f32, projection: CameraProjection) -> error.Code {
     assert(camera_manager.initilized, "camera_create: camera manager not initilized, call init_camera_manager first")
     position := transform_get_position(entity_id)
     camera: Camera = {
@@ -55,15 +84,36 @@ camera_create :: proc(entity_id: entity.Id, target: [3]f32, up: [3]f32, fovy: f3
     return .NONE
 }
 
+/*
+Removes a Camera component from the entity specified by entity_id and frees the underlying memory
+
+Inputs:
+- entity_id: entity.Id The id of the entity whose Camera component will be destroyed
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
+*/
 camera_destroy :: proc(entity_id: entity.Id) {
     assert(camera_manager.initilized, "camera_destroy: camera manager not initilized, call init_camera_manager first")
-
     camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
     error.must(found)
-
     registry.destroy_item(&camera_manager.camera_registry, entity_id)
 }
 
+/*
+Returns the vertical field of view of the Camera component specified by the entity_id
+
+Inputs:
+- entity_id: entity.Id The id of the entity whose fovy will be returned
+
+Outputs:
+- f32 The fovy of the Camera
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
+*/
 camera_get_fovy :: proc(entity_id: entity.Id) -> f32 {
     assert(camera_manager.initilized, "camera_get_fovy: camera manager not initilized, call init_camera_manager first")
     camera, err := registry.get_item(&camera_manager.camera_registry, entity_id)
@@ -71,6 +121,19 @@ camera_get_fovy :: proc(entity_id: entity.Id) -> f32 {
     return camera.fovy
 }
 
+/*
+Returns the projection mode of the Camera component specified by the entity_id
+
+Inputs:
+- entity_id: entity.Id The id of the entity whose Projection will be returned
+
+Outputs:
+- CameraProjection The Projection mode of the Camera
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
+*/
 camera_get_projection :: proc(entity_id: entity.Id) -> CameraProjection {
     assert(camera_manager.initilized, "camera_get_projection: camera manager not initilized, call init_camera_manager first")
     camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
@@ -79,6 +142,16 @@ camera_get_projection :: proc(entity_id: entity.Id) -> CameraProjection {
     return camera.projection
 }
 
+/*
+Sets the vertical field of view f32 of the entity specified by entity_id's corresponding Camera component
+
+Inputs:
+- entity_id: entity.Id The id of the entity whose fovy will be set
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
+*/
 camera_set_fovy :: proc(entity_id: entity.Id, fovy: f32) {
     assert(camera_manager.initilized, "camera_set_fovy: camera manager not initilized, call init_camera_manager first")
     camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
@@ -86,6 +159,16 @@ camera_set_fovy :: proc(entity_id: entity.Id, fovy: f32) {
     camera.fovy = fovy
 }
 
+/*
+Sets the Projection mode CameraProjection of the entity specified by entity_id's corresponding Camera component
+
+Inputs:
+- entity_id: entity.Id The id of the entity whose projection mode will be set
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
+*/
 camera_set_projection :: proc(entity_id: entity.Id, projection: CameraProjection) {
     assert(camera_manager.initilized, "camera_set_projection: camera manager not initilized, call init_camera_manager first")
     camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
@@ -93,6 +176,17 @@ camera_set_projection :: proc(entity_id: entity.Id, projection: CameraProjection
     camera.projection = projection
 }
 
+/*
+Returns the Id of the main camera
+
+Outputs:
+- entity.Id The id of the entity the main camera is attached to
+- error.Code The error state returned no error if .NONE .NO_MAIN_CAMERA_SET if the main camera is invalid or unassigned
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
+*/
 @(require_results)
 get_main_camera :: proc() -> (entity.Id, error.Code) {
     assert(camera_manager.initilized, "get_main_camera: camera manager not initilized, call init_camera_manager first")
@@ -102,6 +196,19 @@ get_main_camera :: proc() -> (entity.Id, error.Code) {
     return camera_manager.main_camera, .NONE
 }
 
+/*
+Sets the main camera
+
+Inputs:
+- entity_id: entity.Id The id of the entity the camera is attached to
+
+Outputs:
+- error.Code The error state returned no error if .NONE .INVALID_CAMERA if the specified Id is invalid
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
+*/
 @(require_results)
 set_main_camera :: proc(entity_id: entity.Id) -> error.Code {
     assert(camera_manager.initilized, "set_main_camera: camera manager not initilized, call init_camera_manager first")
@@ -120,23 +227,53 @@ main_camera_begin_draw :: proc() -> error.Code {
     if camera_manager.main_camera <= registry.UNASSIGNED_ID {
         return .INVALID_CAMERA
     }
-    camera, found := registry.get_item(&camera_manager.camera_registry, camera_manager.main_camera)
-    error.must(found)
+    camera, camera_found := registry.get_item(&camera_manager.camera_registry, camera_manager.main_camera)
+    error.must(camera_found)
 
-    pos := transform_get_position(camera_manager.main_camera)
     if camera.projection == .NONE {
         error.printf(.INVALID_CAMERA_PROJECTION, "Main camera's projection is NONE")
         return .INVALID_CAMERA_PROJECTION
     }
 
+    pos := transform_get_position(camera_manager.main_camera)
+    up := transform_get_up_local(camera_manager.main_camera)
+    forward := transform_get_forward_local(camera_manager.main_camera)
+
     rl.BeginMode3D({
         fovy = camera.fovy,
         projection = .PERSPECTIVE if camera.projection == .PERSPECTIVE else .ORTHOGRAPHIC,
         position = pos,
-        target = {0, 0, 0}, //TEMP
-        up = {0, 1, 0} // TEMP
+        target = pos + forward,
+        up = up
     })
     return .NONE
+}
+
+camera_begin_draw :: proc(camera_id: entity.Id) -> error.Code {
+    assert(camera_manager.initilized, "camera_begin_draw: camera manager not initilized, call init_camera_manager first")
+       if camera_manager.main_camera <= registry.UNASSIGNED_ID {
+        return .INVALID_CAMERA
+    }
+    camera, camera_found := registry.get_item(&camera_manager.camera_registry, camera_id)
+    error.must(camera_found)
+
+    if camera.projection == .NONE {
+        error.printf(.INVALID_CAMERA_PROJECTION, "Main camera's projection is NONE")
+        return .INVALID_CAMERA_PROJECTION
+    }
+
+    pos := transform_get_position(camera_id)
+    up := transform_get_up_local(camera_id)
+    forward := transform_get_forward_local(camera_id)
+
+    rl.BeginMode3D({
+        fovy = camera.fovy,
+        projection = .PERSPECTIVE if camera.projection == .PERSPECTIVE else .ORTHOGRAPHIC,
+        position = pos,
+        target = pos + forward,
+        up = up
+    })
+    return .NONE 
 }
 
 /*

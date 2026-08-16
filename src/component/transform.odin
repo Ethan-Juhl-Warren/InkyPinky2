@@ -31,7 +31,7 @@ a corresponding call to destroy_transform_manager must be called to cleanup
 
 Note:
 
-This individually intilizes the transform manager.
+This individually intilizes the transform manager
 See also init_component_managers, which initilizes all component mangers
 */
 init_transform_manager :: proc() {
