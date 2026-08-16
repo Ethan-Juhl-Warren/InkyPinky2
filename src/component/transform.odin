@@ -623,3 +623,95 @@ transform_look_at_leveled :: proc(entity_id: entity.Id, target: [3]f32) {
 	transform.rotation = linalg.quaternion_from_forward_and_up(forward, GLOBAL_UP)
 }
 
+/*
+Moves the entity's position a fraction t of the way toward target
+
+Input:
+- entity_id: entity.Id The id of the entity
+- target: [3]f32 The position, in global co-ordinates, to interpolate toward
+- t: f32 The interpolation factor, 0 leaves the position unchanged, 1 reaches target
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Transform the system will panic
+
+t is not clamped, values outside 0..1 extrapolate
+*/
+transform_lerp_position :: proc(entity_id: entity.Id, target: [3]f32, t: f32) {
+	assert(transform_manager.initilized, "transform_lerp_position: transform manager not initialized, call init_transform_manager first")
+	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	error.must(found)
+	transform.position += (target - transform.position) * t
+}
+
+/*
+Moves the entity's scale a fraction t of the way toward target
+
+Input:
+- entity_id: entity.Id The id of the entity
+- target: [3]f32 The scale to interpolate toward
+- t: f32 The interpolation factor, 0 leaves the scale unchanged, 1 reaches target
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Transform the system will panic
+
+t is not clamped, values outside 0..1 extrapolate
+*/
+transform_lerp_scale :: proc(entity_id: entity.Id, target: [3]f32, t: f32) {
+	assert(transform_manager.initilized, "transform_lerp_scale: transform manager not initialized, call init_transform_manager first")
+	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	error.must(found)
+	transform.scale += (target - transform.scale) * t
+}
+
+/*
+Turns the entity's rotation a fraction t of the way toward target
+
+Input:
+- entity_id: entity.Id The id of the entity
+- target: quaternion128 The rotation to interpolate toward
+- t: f32 The interpolation factor, 0 leaves the rotation unchanged, 1 reaches target
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Transform the system will panic
+
+The rotation travels the shortest arc at a constant angular velocity
+
+t is not clamped, values outside 0..1 extrapolate
+The result is normalized
+*/
+transform_slerp_rotation :: proc(entity_id: entity.Id, target: quaternion128, t: f32) {
+	assert(transform_manager.initilized, "transform_slerp_rotation: transform manager not initialized, call init_transform_manager first")
+	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	error.must(found)
+	transform.rotation = linalg.quaternion_normalize0(linalg.quaternion_slerp(transform.rotation, target, t))
+}
+
+/*
+Moves the entity's whole transform a fraction t of the way toward target
+
+Input:
+- entity_id: entity.Id The id of the entity
+- target: Transform The transform to interpolate toward
+- t: f32 The interpolation factor, 0 leaves the transform unchanged, 1 reaches target
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Transform the system will panic
+
+Position and scale are interpolated linearly, rotation travels the shortest arc at a
+constant angular velocity
+
+t is not clamped, values outside 0..1 extrapolate
+The rotation is normalized
+*/
+transform_interpolate :: proc(entity_id: entity.Id, #by_ptr target: Transform, t: f32) {
+	assert(transform_manager.initilized, "transform_interpolate: transform manager not initialized, call init_transform_manager first")
+	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	error.must(found)
+	transform.position += (target.position - transform.position) * t
+	transform.scale += (target.scale - transform.scale) * t
+	transform.rotation = linalg.quaternion_normalize0(linalg.quaternion_slerp(transform.rotation, target.rotation, t))
+}
