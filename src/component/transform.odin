@@ -742,6 +742,19 @@ transform_interpolate :: proc(entity_id: entity.Id, #by_ptr target: Transform, t
 	transform.rotation = linalg.quaternion_normalize0(linalg.quaternion_slerp(transform.rotation, target.rotation, t))
 }
 
+/*
+Returns the View Matrix of the transform
+
+Inputs:
+- entity_id: entity.Id The id of the transform
+
+Outputs:
+- matrix[4,4]f32 The view matrix of the transform
+
+Note
+
+If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
+*/
 @(private)
 _transform_get_view_matrix :: proc(entity_id: entity.Id) -> matrix[4,4]f32 {
 	assert(camera_manager.initilized, "camera_get_view_matrix: transform manager not initilized, call init_camera_manager first")
