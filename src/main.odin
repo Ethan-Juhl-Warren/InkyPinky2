@@ -3,13 +3,19 @@ package main
 import rl "vendor:raylib"
 import b3 "vendor:box3d"
 import cmpt "component"
+import "core:math"
+import "core:math/linalg"
 import "error"
 import "entity"
+
+MOUSE_SENSITIVITY :: 0.003
+PITCH_LIMIT_DEGREES :: 89
 
 main :: proc() {
 	rl.InitWindow(1280, 720, "Box3D + raylib")
 	defer rl.CloseWindow()
 	rl.SetTargetFPS(60)
+	rl.DisableCursor()
 
 	// Init entity manager
 	entity.init_entity_manager()
@@ -20,8 +26,8 @@ main :: proc() {
 	defer cmpt.destroy_component_managers()
 
 	main_camera := entity.create("main camera") 
-	cmpt.transform_create(main_camera, {0, 10, 20}, {1, 1, 1}, quaternion(w=1, x=0, y=0, z=0))
-	cmpt.camera_create(main_camera, {0, 0, 0}, {0, 1, 0}, 45, .PERSPECTIVE)
+	cmpt.transform_create(main_camera, {0, 10, 20}, {1, 1, 1}, linalg.QUATERNIONF32_IDENTITY)
+	cmpt.camera_create(main_camera, 45, .PERSPECTIVE)
 	camera_error := cmpt.set_main_camera(main_camera)
 	error.must(camera_error)
 
@@ -56,17 +62,18 @@ main :: proc() {
 	box_model := rl.LoadModelFromMesh(rl.GenMeshCube(1, 1, 1))
 	defer rl.UnloadModel(box_model)
 	box_model.materials[0].maps[rl.MaterialMapIndex.ALBEDO].color = rl.RED
-
+	
 	for !rl.WindowShouldClose() {
 		b3.World_Step(world_id, 1.0 / 60.0, 4)
-
-		handle_input(main_camera)
+		cam_pos := cmpt.transform_get_position(main_camera)
+		handle_input(main_camera, cam_pos)
+		handle_mouse(main_camera)
 
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.SKYBLUE)
 		rl.DrawFPS(100, 100)
 
-		error.print(cmpt.main_camera_begin_draw())
+		cmpt.main_camera_begin_draw()
 		defer cmpt.camera_end_draw()
 		
 		gt := b3.Body_GetTransform(ground_id)
@@ -82,26 +89,48 @@ main :: proc() {
 	}
 }
 
-handle_input :: proc(main_camera: entity.Id) {
-		curr_pos := cmpt.transform_get_position(main_camera)
-		if rl.IsKeyDown(rl.KeyboardKey.W) {
-			cmpt.transform_set_position(main_camera, curr_pos + {0,0,1})
-		}
-		if rl.IsKeyDown(rl.KeyboardKey.S) {
-			cmpt.transform_set_position(main_camera, curr_pos + {0,0,-1})
-		}
+handle_input :: proc(main_camera: entity.Id, curr_pos: [3]f32) {
+	up := cmpt.transform_get_up_local(main_camera)
+	right := cmpt.transform_get_right_local(main_camera)
+	forward := cmpt.transform_get_forward_local(main_camera)
+	delta_d := [3]f32 {0, 0, 0}
+	if rl.IsKeyDown(rl.KeyboardKey.W) {
+		delta_d += forward
+	}
+	if rl.IsKeyDown(rl.KeyboardKey.S) {
+		delta_d -= forward
+	}
 
-		if rl.IsKeyDown(rl.KeyboardKey.A) {
-			cmpt.transform_set_position(main_camera, curr_pos + {1,0,0})
-		}
-		if rl.IsKeyDown(rl.KeyboardKey.D) {
-			cmpt.transform_set_position(main_camera, curr_pos + {-1,0,0})
-		}
+	if rl.IsKeyDown(rl.KeyboardKey.A) {
+		delta_d -= right
+	}
+	if rl.IsKeyDown(rl.KeyboardKey.D) {
+		delta_d += right
+	}
 
-		if rl.IsKeyDown(rl.KeyboardKey.SPACE) {
-			cmpt.transform_set_position(main_camera, curr_pos + {0,1,0})
-		}
-		if rl.IsKeyDown(rl.KeyboardKey.LEFT_SHIFT) {
-			cmpt.transform_set_position(main_camera, curr_pos + {0, -1,0})
-		}
+	if rl.IsKeyDown(rl.KeyboardKey.SPACE) {
+		delta_d += up
+	}
+	if rl.IsKeyDown(rl.KeyboardKey.LEFT_SHIFT) {
+		delta_d -= up
+	}
+	cmpt.transform_set_position(main_camera, curr_pos + delta_d)
+}
+
+handle_mouse :: proc(main_camera: entity.Id) {
+	delta := rl.GetMouseDelta()
+	if delta.x == 0 && delta.y == 0 {
+		return
+	}
+
+	// yaw about the global up, so the horizon never tilts
+	yaw := -delta.x * MOUSE_SENSITIVITY
+	cmpt.transform_rotate(main_camera, linalg.quaternion_angle_axis(yaw, cmpt.GLOBAL_UP))
+
+	// pitch about the camera's own right axis, stopping short of straight up/down
+	limit := math.to_radians_f32(PITCH_LIMIT_DEGREES)
+	forward := cmpt.transform_get_forward_local(main_camera)
+	pitch_now := math.asin_f32(clamp(forward.y, -1, 1))
+	pitch := clamp(-delta.y * MOUSE_SENSITIVITY, -limit - pitch_now, limit - pitch_now)
+	cmpt.transform_rotate_local(main_camera, linalg.quaternion_angle_axis(pitch, cmpt.GLOBAL_RIGHT))
 }
