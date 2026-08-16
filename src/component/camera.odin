@@ -1,13 +1,14 @@
 package component
 import "../entity"
+import "core:math/linalg"
 import "../registry"
 import "../error"
+import "core:math"
 import rl "vendor:raylib"
 
 @(private) camera_manager: CameraManager
 
 CameraProjection :: enum {
-    NONE = 0,
     PERSPECTIVE,
     ORTHOGRAPHIC
 }
@@ -71,9 +72,13 @@ Note:
 
 If the supplied entity_id is invalid the system will panic
 */
-camera_create :: proc(entity_id: entity.Id, fovy: f32, projection: CameraProjection) -> error.Code {
+camera_create :: proc(entity_id: entity.Id, fovy: f32, projection: CameraProjection) {
     assert(camera_manager.initilized, "camera_create: camera manager not initilized, call init_camera_manager first")
-    position := transform_get_position(entity_id)
+    valid := transform_exists(entity_id)
+    if !valid {
+        error.must(.ADDING_CAMERA_TO_ENTITY_WITH_NO_TRANSFORM)
+    }
+
     camera: Camera = {
         fovy,
         projection
@@ -81,7 +86,6 @@ camera_create :: proc(entity_id: entity.Id, fovy: f32, projection: CameraProject
 
     err := registry.create_item(&camera_manager.camera_registry, entity_id, camera)
     error.must(err)
-    return .NONE
 }
 
 /*
@@ -215,25 +219,71 @@ set_main_camera :: proc(entity_id: entity.Id) -> error.Code {
     if entity_id <= registry.UNASSIGNED_ID {
         return .INVALID_CAMERA
     }
+    _, found := registry.get_item(&camera_manager.camera_registry, entity_id)
+    error.must(found)
     camera_manager.main_camera = entity_id
     return .NONE
 }
 
 /*
+Returns the View Matrix of the camera
+
+Inputs:
+- entity_id: entity.Id The id of the camera
+
+Outputs:
+- matrix[4,4]f32 The view matrix of the camera
+
+Note
+
+If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
+*/
+camera_get_view_matrix :: proc(entity_id: entity.Id) -> matrix[4,4]f32 {
+    assert(camera_manager.initilized, "camera_get_view_matrix: camera manager not initilized, call init_camera_manager first")
+    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
+    error.must(found)
+    pos := transform_get_position(entity_id)
+    forward := transform_get_forward_local(entity_id)
+    up := transform_get_up_local(entity_id)
+    return linalg.matrix4_look_at(pos, pos + forward, up)
+}
+
+/*
+Returns the Projection Matrix of the camera
+
+Inputs:
+- entity_id: entity.Id The id of the camera
+
+Outputs:
+- matrix[4,4]f32 The projection matrix of the camera
+
+Note
+
+If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
+*/
+camera_get_projection_matrix :: proc(entity_id: entity.Id, aspect, near, far: f32) -> matrix[4,4]f32 {
+    assert(camera_manager.initilized, "camera_get_projection_matrix: camera manager not initilized, call init_camera_manager first")
+    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
+    error.must(found)
+    switch camera.projection {
+    case .PERSPECTIVE:
+        return linalg.matrix4_perspective(math.to_radians_f32(camera.fovy), aspect, near, far)
+    case .ORTHOGRAPHIC:
+        top := camera.fovy * 0.5
+        right := top * aspect
+        return linalg.matrix_ortho3d(-right, right, -top, top, near, far)
+    }
+    error.must(.INVALID_CAMERA_PROJECTION)
+    return {} // Unreachable kkk must add error.throw at some stage
+}
+
+/*
  * This is temp while raylib is acting as the renderer
  */
-main_camera_begin_draw :: proc() -> error.Code {
+main_camera_begin_draw :: proc() {
     assert(camera_manager.initilized, "main_camera_begin_draw: camera manager not initilized, call init_camera_manager first")
-    if camera_manager.main_camera <= registry.UNASSIGNED_ID {
-        return .INVALID_CAMERA
-    }
     camera, camera_found := registry.get_item(&camera_manager.camera_registry, camera_manager.main_camera)
     error.must(camera_found)
-
-    if camera.projection == .NONE {
-        error.printf(.INVALID_CAMERA_PROJECTION, "Main camera's projection is NONE")
-        return .INVALID_CAMERA_PROJECTION
-    }
 
     pos := transform_get_position(camera_manager.main_camera)
     up := transform_get_up_local(camera_manager.main_camera)
@@ -246,21 +296,12 @@ main_camera_begin_draw :: proc() -> error.Code {
         target = pos + forward,
         up = up
     })
-    return .NONE
 }
 
-camera_begin_draw :: proc(camera_id: entity.Id) -> error.Code {
+camera_begin_draw :: proc(camera_id: entity.Id) {
     assert(camera_manager.initilized, "camera_begin_draw: camera manager not initilized, call init_camera_manager first")
-       if camera_manager.main_camera <= registry.UNASSIGNED_ID {
-        return .INVALID_CAMERA
-    }
     camera, camera_found := registry.get_item(&camera_manager.camera_registry, camera_id)
     error.must(camera_found)
-
-    if camera.projection == .NONE {
-        error.printf(.INVALID_CAMERA_PROJECTION, "Main camera's projection is NONE")
-        return .INVALID_CAMERA_PROJECTION
-    }
 
     pos := transform_get_position(camera_id)
     up := transform_get_up_local(camera_id)
@@ -273,7 +314,6 @@ camera_begin_draw :: proc(camera_id: entity.Id) -> error.Code {
         target = pos + forward,
         up = up
     })
-    return .NONE 
 }
 
 /*

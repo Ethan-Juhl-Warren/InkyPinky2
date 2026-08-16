@@ -73,7 +73,7 @@ main :: proc() {
 		rl.ClearBackground(rl.SKYBLUE)
 		rl.DrawFPS(100, 100)
 
-		error.print(cmpt.main_camera_begin_draw())
+		cmpt.main_camera_begin_draw()
 		defer cmpt.camera_end_draw()
 		
 		gt := b3.Body_GetTransform(ground_id)

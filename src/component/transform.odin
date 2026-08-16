@@ -48,7 +48,7 @@ Destroys the transform manager, must be called at cleanup time to free the trans
 
 Note:
 
-This individually destroys the transform manager.
+This individually destroys the transform manager
 See also destroy_component_managers, which destroys all component mangers
 */
 destroy_transform_manager :: proc() {
