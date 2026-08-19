@@ -34,29 +34,29 @@ RigidBody :: struct {
 @(private)
 RigidBodyManager :: struct {
 	rigidbody_registry: registry.Registry(RigidBody, entity.Id),
-	initilized: bool
+	initialized: bool
 }
 
 init_rigidbody_manager :: proc() {
-	if rigidbody_manager.initilized {
-		error.printf(.MANAGER_ALREADY_INITILIZED, "intilizing rigidbody manager")
+	if rigidbody_manager.initialized {
+		error.printf(.MANAGER_ALREADY_INITIALIZED, "initializing rigidbody manager")
 		return
 	}
 	registry.init_registry(&rigidbody_manager.rigidbody_registry, _free_rigidbody)
-	rigidbody_manager.initilized = true
+	rigidbody_manager.initialized = true
 }
 
 destroy_rigidbody_manager :: proc() {
-	if !rigidbody_manager.initilized {
-		error.printf(.DESTROYING_UNINITILIZED_MANAGER, "destroying rigidbody manager")
+	if !rigidbody_manager.initialized {
+		error.printf(.DESTROYING_UNINITIALIZED_MANAGER, "destroying rigidbody manager")
 		return
 	}
 	registry.destroy_registry(&rigidbody_manager.rigidbody_registry)
-	rigidbody_manager.initilized = false
+	rigidbody_manager.initialized = false
 }
 
 create_rigidbody :: proc(entity_id: entity.Id, bodydef: b3.BodyDef) {
-	assert(rigidbody_manager.initilized, "create_rigidbody: rigidbody_manager not intilized, call init_rigid_bosy_manager")
+	assert(rigidbody_manager.initialized, "create_rigidbody: rigidbody_manager not initialized, call init_rigid_body_manager")
 	rigidbody: RigidBody
 	rigidbody.internal_rigidbody_id = b3.nullBodyId
 	rigidbody.internal_bodydef = bodydef
@@ -66,7 +66,7 @@ create_rigidbody :: proc(entity_id: entity.Id, bodydef: b3.BodyDef) {
 }
 
 destroy_rigidbody :: proc(entity_id: entity.Id) {
-	assert(rigidbody_manager.initilized, "destroy_rigidbody: rigidbody manager not initialized, call init_rigidbody_manager first")
+	assert(rigidbody_manager.initialized, "destroy_rigidbody: rigidbody manager not initialized, call init_rigidbody_manager first")
 	rigidbody, found := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
 	error.must(found)
 	registry.destroy_item(&rigidbody_manager.rigidbody_registry, entity_id)

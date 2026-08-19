@@ -22,25 +22,25 @@ Camera :: struct {
 CameraManager :: struct {
     camera_registry: registry.Registry(Camera, entity.Id),
     main_camera: entity.Id,
-    initilized: bool
+    initialized: bool
 }
 
 /*
-Initilizes the camera manager, must be called prior to any function that deals with cameras
+initializes the camera manager, must be called prior to any function that deals with cameras
 a corresponding call to destroy_camera_manager must be called to cleanup
 
 Note:
 
-This individually intilizes the camera manager
-See also init_component_managers, which initilizes all component mangers
+This individually initializes the camera manager
+See also init_component_managers, which initializes all component mangers
 */
 init_camera_manager :: proc() {
-    if camera_manager.initilized {
-        error.printf(.MANAGER_ALREADY_INITILIZED, "initilizing camera manager")
+    if camera_manager.initialized {
+        error.printf(.MANAGER_ALREADY_INITIALIZED, "initializing camera manager")
         return
     }
     registry.init_registry(&camera_manager.camera_registry, nil)
-    camera_manager.initilized = true
+    camera_manager.initialized = true
 }
 
 /*
@@ -52,12 +52,12 @@ This individually destroys the camera manager
 See also destroy_component_managers, which destroys all component mangers
 */
 destroy_camera_manager :: proc() {
-    if !camera_manager.initilized {
-        error.printf(.DESTROYING_UNINITILIZED_MANAGER, "destroying camera manager")
+    if !camera_manager.initialized {
+        error.printf(.DESTROYING_UNINITIALIZED_MANAGER, "destroying camera manager")
         return
     }
     registry.destroy_registry(&camera_manager.camera_registry)
-    camera_manager.initilized = false
+    camera_manager.initialized = false
 }
 
 /*
@@ -73,7 +73,7 @@ Note:
 If the supplied entity_id is invalid the system will panic
 */
 camera_create :: proc(entity_id: entity.Id, fovy: f32, projection: CameraProjection) {
-    assert(camera_manager.initilized, "camera_create: camera manager not initilized, call init_camera_manager first")
+    assert(camera_manager.initialized, "camera_create: camera manager not initialized, call init_camera_manager first")
     valid := transform_exists(entity_id)
     if !valid {
         error.must(.ADDING_CAMERA_TO_ENTITY_WITH_NO_TRANSFORM)
@@ -99,7 +99,7 @@ Note:
 If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
 */
 camera_destroy :: proc(entity_id: entity.Id) {
-    assert(camera_manager.initilized, "camera_destroy: camera manager not initilized, call init_camera_manager first")
+    assert(camera_manager.initialized, "camera_destroy: camera manager not initialized, call init_camera_manager first")
     camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
     error.must(found)
     registry.destroy_item(&camera_manager.camera_registry, entity_id)
@@ -119,7 +119,7 @@ Note:
 If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
 */
 camera_get_fovy :: proc(entity_id: entity.Id) -> f32 {
-    assert(camera_manager.initilized, "camera_get_fovy: camera manager not initilized, call init_camera_manager first")
+    assert(camera_manager.initialized, "camera_get_fovy: camera manager not initialized, call init_camera_manager first")
     camera, err := registry.get_item(&camera_manager.camera_registry, entity_id)
     error.must(err)
     return camera.fovy
@@ -139,7 +139,7 @@ Note:
 If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
 */
 camera_get_projection :: proc(entity_id: entity.Id) -> CameraProjection {
-    assert(camera_manager.initilized, "camera_get_projection: camera manager not initilized, call init_camera_manager first")
+    assert(camera_manager.initialized, "camera_get_projection: camera manager not initialized, call init_camera_manager first")
     camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
     error.must(found)
 
@@ -157,7 +157,7 @@ Note:
 If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
 */
 camera_set_fovy :: proc(entity_id: entity.Id, fovy: f32) {
-    assert(camera_manager.initilized, "camera_set_fovy: camera manager not initilized, call init_camera_manager first")
+    assert(camera_manager.initialized, "camera_set_fovy: camera manager not initialized, call init_camera_manager first")
     camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
     error.must(found)
     camera.fovy = fovy
@@ -174,7 +174,7 @@ Note:
 If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
 */
 camera_set_projection :: proc(entity_id: entity.Id, projection: CameraProjection) {
-    assert(camera_manager.initilized, "camera_set_projection: camera manager not initilized, call init_camera_manager first")
+    assert(camera_manager.initialized, "camera_set_projection: camera manager not initialized, call init_camera_manager first")
     camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
     error.must(found)
     camera.projection = projection
@@ -193,7 +193,7 @@ If the supplied entity_id is invalid, or has no corresponding Camera component t
 */
 @(require_results)
 get_main_camera :: proc() -> (entity.Id, error.Code) {
-    assert(camera_manager.initilized, "get_main_camera: camera manager not initilized, call init_camera_manager first")
+    assert(camera_manager.initialized, "get_main_camera: camera manager not initialized, call init_camera_manager first")
     if camera_manager.main_camera <= registry.UNASSIGNED_ID {
         return registry.INVALID_ID, .NO_MAIN_CAMERA_SET
     }
@@ -215,7 +215,7 @@ If the supplied entity_id is invalid, or has no corresponding Camera component t
 */
 @(require_results)
 set_main_camera :: proc(entity_id: entity.Id) -> error.Code {
-    assert(camera_manager.initilized, "set_main_camera: camera manager not initilized, call init_camera_manager first")
+    assert(camera_manager.initialized, "set_main_camera: camera manager not initialized, call init_camera_manager first")
     if entity_id <= registry.UNASSIGNED_ID {
         return .INVALID_CAMERA
     }
@@ -239,7 +239,7 @@ Note
 If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
 */
 camera_get_view_matrix :: proc(entity_id: entity.Id) -> matrix[4,4]f32 {
-    assert(camera_manager.initilized, "camera_get_view_matrix: camera manager not initilized, call init_camera_manager first")
+    assert(camera_manager.initialized, "camera_get_view_matrix: camera manager not initialized, call init_camera_manager first")
     return _transform_get_view_matrix(entity_id)
 }
 
@@ -257,7 +257,7 @@ Note
 If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
 */
 camera_get_projection_matrix :: proc(entity_id: entity.Id, aspect, near, far: f32) -> matrix[4,4]f32 {
-    assert(camera_manager.initilized, "camera_get_projection_matrix: camera manager not initilized, call init_camera_manager first")
+    assert(camera_manager.initialized, "camera_get_projection_matrix: camera manager not initialized, call init_camera_manager first")
     camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
     error.must(found)
     switch camera.projection {
@@ -276,7 +276,7 @@ camera_get_projection_matrix :: proc(entity_id: entity.Id, aspect, near, far: f3
  * This is temp while raylib is acting as the renderer
  */
 main_camera_begin_draw :: proc() {
-    assert(camera_manager.initilized, "main_camera_begin_draw: camera manager not initilized, call init_camera_manager first")
+    assert(camera_manager.initialized, "main_camera_begin_draw: camera manager not initialized, call init_camera_manager first")
     camera, camera_found := registry.get_item(&camera_manager.camera_registry, camera_manager.main_camera)
     error.must(camera_found)
 
@@ -293,7 +293,7 @@ main_camera_begin_draw :: proc() {
 }
 
 camera_begin_draw :: proc(entity_id: entity.Id) {
-    assert(camera_manager.initilized, "camera_begin_draw: camera manager not initilized, call init_camera_manager first")
+    assert(camera_manager.initialized, "camera_begin_draw: camera manager not initialized, call init_camera_manager first")
     camera, camera_found := registry.get_item(&camera_manager.camera_registry, entity_id)
     error.must(camera_found)
 

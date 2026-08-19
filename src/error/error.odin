@@ -20,8 +20,8 @@ Code :: enum i32 {
 	INVALID_CAMERA_PROJECTION,
 	NO_MAIN_CAMERA_SET,
 	INVALID_CAMERA,
-	MANAGER_ALREADY_INITILIZED,
-	DESTROYING_UNINITILIZED_MANAGER,
+	MANAGER_ALREADY_INITIALIZED,
+	DESTROYING_UNINITIALIZED_MANAGER,
 }
 
 /*
@@ -68,7 +68,7 @@ INFO := [Code]Info {
 	},
 	.OBJECT_ALREADY_EXISTS = {
 		message = "Object already exists on entity",
-		hint = "registires cannot have multiple objects indexed by the same key",
+		hint = "registries cannot have multiple objects indexed by the same key",
 		severity = .ERROR
 	},
 	.SCENE_IS_ACTIVE = {
@@ -101,14 +101,14 @@ INFO := [Code]Info {
 		hint = "the entity has no camera component, add one with camera_create",
 		severity = .ERROR,
 	},
-	.MANAGER_ALREADY_INITILIZED = {
-		message = "Attempted to intilize a manager that is already intilized",
-		hint = "only intilize managers if they are unititilized or after they have been destroyed",
+	.MANAGER_ALREADY_INITIALIZED = {
+		message = "Attempted to initialize a manager that is already initialized",
+		hint = "only initialize managers if they are uninitialized or after they have been destroyed",
 		severity = .WARNING,
 	},
-	.DESTROYING_UNINITILIZED_MANAGER = {
-		message = "Attempted to destroy a manager that is unitinilized",
-		hint = "do not call destroy on a uninitilized manager"
+	.DESTROYING_UNINITIALIZED_MANAGER = {
+		message = "Attempted to destroy a manager that is uninitialized",
+		hint = "do not call destroy on a uninitialized manager"
 	}
 }
 

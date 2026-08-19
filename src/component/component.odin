@@ -4,7 +4,7 @@ package component
 @(private) Init_Manager_Proc :: proc()
 @(private) Destroy_Manager_Proc :: proc()
 
-@(private) component_initilizer_list := [3]Init_Manager_Proc {
+@(private) component_initializer_list := [3]Init_Manager_Proc {
     init_camera_manager,
     init_rigidbody_manager,
     init_transform_manager,
@@ -17,7 +17,7 @@ package component
 }
 
 init_component_managers :: proc() {
-    for init_proc in component_initilizer_list {
+    for init_proc in component_initializer_list {
         init_proc()
     }
 }

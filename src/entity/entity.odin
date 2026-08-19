@@ -31,7 +31,7 @@ destroy_entity_manager :: proc() {
 
 
 create :: proc(name: string) -> Id {
-	assert(entity_manager.initialized, "create: entity manager not intitialized, call init_entity_manager first")
+	assert(entity_manager.initialized, "create: entity manager not initialized, call init_entity_manager first")
 	_, found := entity_manager.entity_names[name]
 	if found {
 		error.must(.NAME_EXISTS)
@@ -82,7 +82,7 @@ get_entity_name :: proc(entity_id: Id) -> string {
 }
 
 /*
- * TODO IMPORTANT Must add cleanup for material and script refrences once they are concrete
+ * TODO IMPORTANT Must add cleanup for material and script references once they are concrete
 */
 @(private)
 _free_entity :: proc(entity_name: ^string) {
