@@ -22,6 +22,12 @@ Code :: enum i32 {
 	INVALID_CAMERA,
 	MANAGER_ALREADY_INITIALIZED,
 	DESTROYING_UNINITIALIZED_MANAGER,
+	PAK_OPEN_FAILED,
+	PAK_READ_FAILED,
+	PAK_NOT_AN_ARCHIVE,
+	PAK_CORRUPT,
+	PAK_UNSUPPORTED_FEATURE,
+	PAK_ENTRY_NOT_FOUND,
 }
 
 /*
@@ -109,7 +115,37 @@ INFO := [Code]Info {
 	.DESTROYING_UNINITIALIZED_MANAGER = {
 		message = "Attempted to destroy a manager that is uninitialized",
 		hint = "do not call destroy on a uninitialized manager"
-	}
+	},
+	.PAK_OPEN_FAILED = {
+		message = "Pak could not be opened",
+		hint = "check the path, and that nothing else holds the file open for writing",
+		severity = .ERROR,
+	},
+	.PAK_READ_FAILED = {
+		message = "Pak could not be read",
+		hint = "the file was opened but reading from it failed, pak.last_error_string has the reason",
+		severity = .ERROR,
+	},
+	.PAK_NOT_AN_ARCHIVE = {
+		message = "File is not a pak",
+		hint = "paks are zip archives, this file has no central directory",
+		severity = .ERROR,
+	},
+	.PAK_CORRUPT = {
+		message = "Pak is corrupt",
+		hint = "a header, a compressed stream or a CRC did not check out, rebuild the pak",
+		severity = .ERROR,
+	},
+	.PAK_UNSUPPORTED_FEATURE = {
+		message = "Pak uses an unsupported zip feature",
+		hint = "repack it as store or deflate, without encryption or spanning across disks",
+		severity = .ERROR,
+	},
+	.PAK_ENTRY_NOT_FOUND = {
+		message = "Entry could not be found in pak",
+		hint = "paths are relative to the pak root and separated with '/', directories cannot be read",
+		severity = .ERROR,
+	},
 }
 
 /*

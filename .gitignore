@@ -9,3 +9,8 @@ osl.json
 /assets
 /build
 /test
+
+*.lib
+*.obj
+*.o
+*.a

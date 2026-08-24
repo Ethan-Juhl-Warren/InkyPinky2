@@ -2,8 +2,7 @@ package registry
 
 import "../error"
 
-INVALID_ID :: -1
-UNASSIGNED_ID :: 0
+INVALID_ID :: 0
 
 
 Registry :: struct($T: typeid, $K: typeid) {
@@ -43,7 +42,7 @@ get_item :: proc(registry: ^Registry($T, $K), item_id: K) -> (^T, error.Code) {
 	}
 	index, present := registry.slot_of[item_id]
 	if !present {
-		return nil, .OBJECT_NOT_FOUND,
+		return nil, .OBJECT_NOT_FOUND
 	}
 	return &registry.items[index], .NONE
 }
@@ -97,4 +96,12 @@ registry_slice :: proc(registry: ^Registry($T, $K)) -> []T {
 registry_len :: proc(registry: ^Registry($T, $K)) -> int {
 	assert(registry != nil, "registry_len: cannot get length of null registry")
 	return len(registry.items)
+}
+
+
+registry_shrink :: proc(registry: ^Registry($T, $K)) {
+	assert(registry != nil, "registry_shrink: cannot shrink null registry")
+	shrink(&registry.items)
+	shrink(&registry.id_of)
+	shrink(&registry.slot_of)
 }

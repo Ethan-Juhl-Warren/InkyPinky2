@@ -6,6 +6,7 @@ import cmpt "component"
 import "core:math"
 import "core:math/linalg"
 import "error"
+import "scene"
 import "entity"
 
 MOUSE_SENSITIVITY :: 0.003
@@ -18,14 +19,14 @@ main :: proc() {
 	rl.DisableCursor()
 
 	// Init entity manager
-	entity.init_entity_manager()
-	defer entity.destroy_entity_manager()
+	scene.init_scene_manager()
+	defer scene.destroy_scene_manager()
 
 	// Init Components
 	cmpt.init_component_managers()
 	defer cmpt.destroy_component_managers()
 
-	main_camera := entity.create("main camera") 
+	main_camera := scene.create_entity("main camera") 
 	cmpt.transform_create(main_camera, {0, 10, 20}, {1, 1, 1}, linalg.QUATERNIONF32_IDENTITY)
 	cmpt.camera_create(main_camera, 45, .PERSPECTIVE)
 	camera_error := cmpt.set_main_camera(main_camera)

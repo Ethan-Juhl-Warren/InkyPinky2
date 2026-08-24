@@ -194,7 +194,7 @@ If the supplied entity_id is invalid, or has no corresponding Camera component t
 @(require_results)
 get_main_camera :: proc() -> (entity.Id, error.Code) {
     assert(camera_manager.initialized, "get_main_camera: camera manager not initialized, call init_camera_manager first")
-    if camera_manager.main_camera <= registry.UNASSIGNED_ID {
+    if camera_manager.main_camera <= registry.INVALID_ID {
         return registry.INVALID_ID, .NO_MAIN_CAMERA_SET
     }
     return camera_manager.main_camera, .NONE
@@ -216,7 +216,7 @@ If the supplied entity_id is invalid, or has no corresponding Camera component t
 @(require_results)
 set_main_camera :: proc(entity_id: entity.Id) -> error.Code {
     assert(camera_manager.initialized, "set_main_camera: camera manager not initialized, call init_camera_manager first")
-    if entity_id <= registry.UNASSIGNED_ID {
+    if entity_id <= registry.INVALID_ID {
         return .INVALID_CAMERA
     }
     _, found := registry.get_item(&camera_manager.camera_registry, entity_id)

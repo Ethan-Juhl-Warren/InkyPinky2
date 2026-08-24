@@ -1,90 +1,73 @@
-package entity
-import "../registry"
-import "core:strings"
-import "../error"
+package id
 
-@(private) entity_manager: EntityManager
+// An Id is an 8-byte handle: the scene an entity belongs to, plus its index
+// within that scene.
+//
+// Bit layout, LSB first:
+//
+//   [ 0 ..31 ]  index  u32, entity index within its scene
+//   [32 ..63 ]  scene  u32, always >= SCENE_FIRST
+//
+// Scene numbering starts at 1, so zero is unreachable by construction and is
+// the single invalid value. Because the scene is part of the handle, indices
+// restart per scene and two scenes can be resident in the same manager at
+// once without their ids colliding.
+//
+// The scene occupies the high bits, so the numeric order of an Id is
+// scene-major: sorting ids makes each scene a contiguous run. That is what
+// lets a preload sit interleaved in the arrays, get sorted into place after
+// the swap, and then be truncated away by a shrink.
 
-Id :: distinct int
+Id :: distinct u64
 
-@(private)
-EntityManager :: struct {
-	entity_names: map[string]Id,
-	entity_registry: registry.Registry(string, Id),
-	next_id: Id,
-	initialized: bool
+INDEX_BITS :: 32
+
+INDEX_MASK :: u64(1) << INDEX_BITS - 1
+SCENE_MASK :: ~INDEX_MASK
+
+SCENE_FIRST :: u32(1)
+
+// The zero value, and the only invalid one.
+INVALID :: Id(0)
+
+#assert(size_of(Id) == 8)
+#assert(u64(INVALID) == 0) // must stay the zero value, do not change
+
+make_id :: proc(scene: u32, index: u32) -> Id {
+	assert(scene >= SCENE_FIRST, "id.make_id: scene 0 is reserved, number scenes from SCENE_FIRST")
+	return Id(u64(index) | u64(scene) << INDEX_BITS)
 }
 
-init_entity_manager :: proc() {
-	entity_manager.entity_names = make(map[string]Id)
-	registry.init_registry(&entity_manager.entity_registry, _free_entity)
-	entity_manager.next_id = Id(0)
-	entity_manager.initialized = true
+index :: proc "contextless" (id: Id) -> u32 {
+	return u32(u64(id) & INDEX_MASK)
 }
 
-destroy_entity_manager :: proc() {
-	delete(entity_manager.entity_names)
-	registry.destroy_registry(&entity_manager.entity_registry)
-	entity_manager.next_id = Id(0)
-	entity_manager.initialized = false
+scene :: proc "contextless" (id: Id) -> u32 {
+	return u32(u64(id) >> INDEX_BITS)
 }
 
-
-create :: proc(name: string) -> Id {
-	assert(entity_manager.initialized, "create: entity manager not initialized, call init_entity_manager first")
-	_, found := entity_manager.entity_names[name]
-	if found {
-		error.must(.NAME_EXISTS)
-	}
-	name := strings.clone(name)
-
-	entity_manager.next_id += 1
-	err := registry.create_item(&entity_manager.entity_registry, entity_manager.next_id, name)
-	error.must(err)
-	entity_manager.entity_names[name] = entity_manager.next_id
-	return entity_manager.next_id
+is_valid :: proc "contextless" (id: Id) -> bool {
+	return scene(id) >= SCENE_FIRST
 }
 
-// TODO Needs some resource manager cleanup
-destroy_by_id :: proc(entity_id: Id) {
-	assert(entity_manager.initialized, "destroy_by_id: entity manager not initialized, call init_entity_manager first")
-
-	entity, found := registry.get_item(&entity_manager.entity_registry, entity_id)
-	error.must(found)
-
-	delete_key(&entity_manager.entity_names, entity^)
-	registry.destroy_item(&entity_manager.entity_registry, entity_id)
+// tag_of is the scene's bit pattern in Id space, for comparing against a
+// handle without extracting the field. Hoist it out of a per-entity loop and
+// the filter is a mask and a compare.
+tag_of :: proc "contextless" (scene: u32) -> Id {
+	return Id(u64(scene) << INDEX_BITS)
 }
 
-destroy_by_name :: proc(name: string) {
-	assert(entity_manager.initialized, "destroy_by_name: entity manager not initialized, call init_entity_manager first")
-	entity_id, found := entity_manager.entity_names[name]
-	if !found {
-		error.must(.OBJECT_NOT_FOUND)
-	}
-	destroy_by_id(entity_id)
+in_scene :: proc "contextless" (id: Id, tag: Id) -> bool {
+	return Id(u64(id) & SCENE_MASK) == tag
 }
 
-get_by_name :: proc(name: string) -> Id {
-	assert(entity_manager.initialized, "get_by_name: entity manager not initialized, call init_entity_manager first")
-	enity, valid := entity_manager.entity_names[name]
-	if !valid {
-		error.must(.OBJECT_NOT_FOUND)
-	}
-	return enity
+same_scene :: proc "contextless" (a, b: Id) -> bool {
+	return (u64(a) ~ u64(b)) & SCENE_MASK == 0
 }
 
-get_entity_name :: proc(entity_id: Id) -> string {
-	assert(entity_manager.initialized, "get_entity_name: entity manager not initialized, call init_entity_manager first")
-	entity_name, found := registry.get_item(&entity_manager.entity_registry, entity_id)
-	error.must(found)
-	return entity_name^
-}
-
-/*
- * TODO IMPORTANT Must add cleanup for material and script references once they are concrete
-*/
-@(private)
-_free_entity :: proc(entity_name: ^string) {
-	delete(entity_name^)
+// bounds_of is the inclusive Id range a scene occupies once ids are sorted.
+// Everything below lo is an older scene, everything above hi is a newer one.
+bounds_of :: proc "contextless" (scene: u32) -> (lo, hi: Id) {
+	tag := tag_of(scene)
+	return tag, Id(u64(tag) | INDEX_MASK)
 }
