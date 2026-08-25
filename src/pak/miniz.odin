@@ -4,11 +4,19 @@ package pak
 import "core:c"
 
 /*
+WRITTEN BY CLAUDE OPUS 5 (Anthropic), 2026-08-25. Not reviewed line by line by a
+human. The structs below mirror C structs field by field, so a mismatch produces
+plausible looking garbage rather than a crash. See README.md.
+
 Bindings for the vendored miniz, which supplies the zip container handling and
 the DEFLATE codec that `pak` is built on.
 
 The static library has to exist before this package will link, so build it first
 with `nmake windows` or `make linux` (see the Makefile in the repo root).
+
+Only the memory reader is bound. A pak is opened by mapping the file and handing
+miniz the mapping, so the file based reader is never used, and the writer is not
+bound at all because a pak is built by the export tooling rather than the engine.
 
 Everything here is package private, the rest of the engine talks to `pak.odin`.
 */
@@ -17,6 +25,10 @@ when ODIN_OS == .Windows {
 } else {
 	foreign import miniz "../../vendor/miniz/libminiz.a"
 }
+
+// Passed to `mz_zip_reader_locate_file_v2` to match entry names exactly rather
+// than case insensitively.
+MZ_ZIP_FLAG_CASE_SENSITIVE :: c.uint(0x0100)
 
 // Longest filename `Zip_Archive_File_Stat` can hold, names past this are truncated.
 MAX_FILENAME_SIZE :: 512
@@ -155,7 +167,7 @@ Zip_Archive_File_Stat :: struct {
 @(default_calling_convention="c")
 foreign miniz {
 	mz_zip_zero_struct :: proc(pZip: ^Zip_Archive) ---
-	mz_zip_reader_init_file :: proc(pZip: ^Zip_Archive, pFilename: cstring, flags: u32) -> b32 ---
+	mz_zip_reader_init_mem :: proc(pZip: ^Zip_Archive, pMem: rawptr, size: c.size_t, flags: c.uint) -> b32 ---
 	mz_zip_reader_end :: proc(pZip: ^Zip_Archive) -> b32 ---
 	mz_zip_reader_get_num_files :: proc(pZip: ^Zip_Archive) -> c.uint ---
 	mz_zip_reader_file_stat :: proc(pZip: ^Zip_Archive, file_index: c.uint, pStat: ^Zip_Archive_File_Stat) -> b32 ---

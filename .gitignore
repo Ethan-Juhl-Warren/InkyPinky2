@@ -9,6 +9,7 @@ osl.json
 /assets
 /build
 /test
+/examples
 
 *.lib
 *.obj

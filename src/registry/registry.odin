@@ -1,18 +1,19 @@
 package registry
 
 import "../error"
+import "base:intrinsics"
 
 INVALID_ID :: 0
 
 
-Registry :: struct($T: typeid, $K: typeid) {
+Registry :: struct($T: typeid, $K: typeid) where intrinsics.type_is_integer(K) {
 	items: [dynamic]T,
 	id_of: [dynamic]K,
 	slot_of: map[K]int,
 	free_item: proc(^T),
 }
 
-init_registry :: proc(registry: ^Registry($T, $K), free_item: proc(^T) = nil) {
+init_registry :: proc(registry: ^Registry($T, $K), free_item: proc(^T) = nil) where intrinsics.type_is_integer(K) {
 	assert(registry != nil, "init_registry: cannot init null, must allocate registry")
 	registry.items = make([dynamic]T)
 	registry.id_of = make([dynamic]K)
@@ -20,7 +21,7 @@ init_registry :: proc(registry: ^Registry($T, $K), free_item: proc(^T) = nil) {
 	registry.free_item = free_item
 }
 
-destroy_registry :: proc(registry: ^Registry($T, $K)) {
+destroy_registry :: proc(registry: ^Registry($T, $K)) where intrinsics.type_is_integer(K) {
 	assert(registry != nil, "destroy_registry: cannot destroy null registry")
 	if registry == nil {
 		return
@@ -35,7 +36,7 @@ destroy_registry :: proc(registry: ^Registry($T, $K)) {
 	delete(registry.slot_of)
 }
 
-get_item :: proc(registry: ^Registry($T, $K), item_id: K) -> (^T, error.Code) {
+get_item :: proc(registry: ^Registry($T, $K), item_id: K) -> (^T, error.Code) where intrinsics.type_is_integer(K) {
 	assert(registry != nil, "get_item: cannot insert into null registry")
 	if item_id <= INVALID_ID {
 		return nil, .ID_INVALID
@@ -47,7 +48,7 @@ get_item :: proc(registry: ^Registry($T, $K), item_id: K) -> (^T, error.Code) {
 	return &registry.items[index], .NONE
 }
 
-create_item :: proc(registry: ^Registry($T, $K), item_id: K, #by_ptr item: T) -> error.Code {
+create_item :: proc(registry: ^Registry($T, $K), item_id: K, #by_ptr item: T) -> error.Code where intrinsics.type_is_integer(K) {
 	assert(registry != nil, "create_item: cannot create item on null registry")
 	if item_id <= INVALID_ID {
 		return .ID_INVALID
@@ -61,7 +62,7 @@ create_item :: proc(registry: ^Registry($T, $K), item_id: K, #by_ptr item: T) ->
 	return .NONE
 }
 
-destroy_item :: proc(registry: ^Registry($T, $K), item_id: K) -> error.Code {
+destroy_item :: proc(registry: ^Registry($T, $K), item_id: K) -> error.Code where intrinsics.type_is_integer(K) {
 	assert(registry != nil, "destroy_item: cannot destroy item on null registry")
 	if item_id <= INVALID_ID {
 		return .ID_INVALID
@@ -88,18 +89,18 @@ destroy_item :: proc(registry: ^Registry($T, $K), item_id: K) -> error.Code {
 	return .NONE
 }
 
-registry_slice :: proc(registry: ^Registry($T, $K)) -> []T {
+registry_slice :: proc(registry: ^Registry($T, $K)) -> []T where intrinsics.type_is_integer(K) {
 	assert(registry != nil, "registry_slice: cannot get slice of null registry")
 	return registry.items[:]
 }
 
-registry_len :: proc(registry: ^Registry($T, $K)) -> int {
+registry_len :: proc(registry: ^Registry($T, $K)) -> int where intrinsics.type_is_integer(K) {
 	assert(registry != nil, "registry_len: cannot get length of null registry")
 	return len(registry.items)
 }
 
 
-registry_shrink :: proc(registry: ^Registry($T, $K)) {
+registry_shrink :: proc(registry: ^Registry($T, $K)) where intrinsics.type_is_integer(K) {
 	assert(registry != nil, "registry_shrink: cannot shrink null registry")
 	shrink(&registry.items)
 	shrink(&registry.id_of)

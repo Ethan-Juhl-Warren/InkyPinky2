@@ -10,8 +10,6 @@ import "core:strings"
 
 Id :: distinct u32
 
-
-
 SceneRegistry :: struct {
 
 }

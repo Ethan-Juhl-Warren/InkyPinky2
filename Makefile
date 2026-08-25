@@ -1,5 +1,9 @@
 # Builds the engine, and the vendored miniz C library that src/pak links against.
 #
+# The miniz rules below were written by Claude Opus 5 (Anthropic) on 2026-08-25.
+# The compiler flags are not arbitrary and two of them have been measured, see
+# src/pak/README.md before changing them.
+#
 #   Linux     make linux
 #   Windows   nmake windows     (from a Developer Command Prompt, so cl is on PATH)
 #

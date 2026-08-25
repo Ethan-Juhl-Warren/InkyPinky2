@@ -28,6 +28,8 @@ Code :: enum i32 {
 	PAK_CORRUPT,
 	PAK_UNSUPPORTED_FEATURE,
 	PAK_ENTRY_NOT_FOUND,
+	PAK_ENTRY_COMPRESSED,
+	PAK_INVALID_HANDLE,
 }
 
 /*
@@ -143,7 +145,17 @@ INFO := [Code]Info {
 	},
 	.PAK_ENTRY_NOT_FOUND = {
 		message = "Entry could not be found in pak",
-		hint = "paths are relative to the pak root and separated with '/', directories cannot be read",
+		hint = "paths are relative to the pak root and separated with '/', directories cannot be read, and lookups are case sensitive unless the pak was opened otherwise",
+		severity = .ERROR,
+	},
+	.PAK_ENTRY_COMPRESSED = {
+		message = "Entry is compressed and cannot be viewed in place",
+		hint = "only stored entries are windows onto the mapping, use pak.read to unpack this one",
+		severity = .WARNING,
+	},
+	.PAK_INVALID_HANDLE = {
+		message = "Pak handle does not refer to an open pak",
+		hint = "the pak was closed, or the handle was never returned by pak.open",
 		severity = .ERROR,
 	},
 }
