@@ -32,8 +32,25 @@ if you want to take ownership of it.
 ## What this is
 
 A pak is a plain zip file used as a read-only directory that happens to live in
-one file. Where a loose asset is `C:/assets/pig.png`, the same asset inside a
-pak is `game.pak:assets/pig.png`.
+one file. You mount it, read paths out of it, and unmount it — the same shape as
+opening, reading and closing a file, with the pak handle standing in for the
+directory those paths are relative to.
+
+The point is that a call site does not have to care. In the editor an asset is a
+loose file read with `core:os`; in a build it is an entry in a pak read with
+this. One procedure decides which, and everything above it just passes a path:
+
+```odin
+read_file :: proc(path: string) -> (data: []byte, ok: bool) {
+    when RELEASE_MODE {
+        bytes, code := pak.read(assets, path)
+        return bytes, code == .NONE
+    } else {
+        bytes, err := os.read_entire_file_from_path(path, context.allocator)
+        return bytes, err == nil
+    }
+}
+```
 
 Odin's standard library has no zip support — `core:compress` provides raw
 DEFLATE and zlib, but nothing that understands the zip container. So this
@@ -64,11 +81,16 @@ import "core:fmt"
 import "pak"
 import "error"
 
-archive, code := pak.open("game.pak")
+// Required before any mount. Pins the allocator the package's own bookkeeping
+// uses, so mounting and unmounting under different context allocators is safe.
+error.must(pak.init())
+defer error.print(pak.destroy())
+
+archive, code := pak.mount("game.pak")
 if error.print(code) {
     return
 }
-defer pak.close(archive)
+defer pak.unmount(archive)
 
 // A window onto the mapped file. No allocation, no copy.
 // Valid until the pak is closed. Do not write to it or free it.
@@ -98,7 +120,7 @@ for them rather than handing back an empty asset.
 
 **`Pak` is a handle, not the archive.** It is a `distinct u32` naming a slot in
 a package-level pool. Copy it, store it in a map, compare it — all safe.
-`close` invalidates every copy of it at once. A handle to a closed pak returns
+`unmount` invalidates every copy of it at once. A handle to an unmounted pak returns
 `PAK_INVALID_HANDLE` rather than following a dead pointer.
 
 **`view` and `read` are genuinely different operations.** `view` hands back a
@@ -117,9 +139,10 @@ modified.
 
 | | |
 |---|---|
-| `open(path, case_sensitive := true) -> (Pak, error.Code)` | Maps the file, reads the central directory. Nothing is decompressed. |
-| `close(p)` | Releases the mapping. Invalidates every copy of the handle. Safe to call on an already-closed pak, so safe to `defer` after a failed open. |
-| `destroy()` | Closes everything still open and frees the pool. Call at shutdown. |
+| `init(alloc := context.allocator) -> error.Code` | **Required before `mount`.** Pins the allocator for the package's own bookkeeping. `MANAGER_ALREADY_INITIALIZED` if called twice. |
+| `mount(path, case_sensitive := true) -> (Pak, error.Code)` | Maps the file, reads the central directory. Nothing is decompressed. |
+| `unmount(p)` | Releases the mapping. Invalidates every copy of the handle. Safe to call on an already-unmounted pak, so safe to `defer` after a failed mount. |
+| `destroy() -> error.Code` | Closes everything still open and frees the pool. `DESTROYING_UNINITIALIZED_MANAGER` if never inited. |
 | `is_open(p) -> bool` | Whether a handle still refers to an open pak. |
 | `path_of(p) -> string` | The path it was opened from. Valid until closed. |
 
@@ -168,21 +191,22 @@ Entry :: struct {
     size:            u64,
     compressed_size: u64,
     crc32:           u32,
-    stored:          bool,     // true => view() will work
+    stored:          bool,     // needed for view(), but not sufficient
+    encrypted:       bool,     // read() and view() both refuse these
     is_directory:    bool,
 }
 ```
 
-### References
+### What this package deliberately does not do
 
-`split_reference("game.pak:assets/pig.png")` splits a combined reference into
-the archive path and the entry path. It splits on the **last** colon so
-`C:/game/game.pak:assets/pig.png` survives. `find(archive_path)` returns an
-already-open pak by the path it was opened from, so a reference can be resolved
-without reopening.
+It knows nothing about loose files. There is no mount stack, no search path, no
+override ordering, and no way to give it a directory. Choosing between a loose
+file and a pak entry is a decision for the layer above — one `when` in one
+procedure, as in [What this is](#what-this-is).
 
-These are deliberately minimal. There is no mount stack, no search path, no
-override ordering — that belongs in a layer above this one.
+It also has no notion of an asset reference that names its own pak. Paths are
+relative to the pak handle you pass in, exactly as a file path is relative to
+the directory it is in.
 
 ### Integrity
 
@@ -284,6 +308,30 @@ An earlier version also silently retried lookups with backslashes, because
 PowerShell's `Compress-Archive` writes non-conformant paths. That was removed
 for the same reason: it accepted malformed paks rather than reporting them.
 
+### Why `init` is required rather than lazy
+
+The pool is a `[dynamic]^Archive`, and Odin grows one of those on first `append`
+without any explicit setup. So for a while there was a `destroy` and no `init`,
+which "worked".
+
+It concealed a real bug. Everything the package allocates for itself — the pool,
+each `Archive`, each `path`, each verification bitset — was taken from whatever
+`context.allocator` happened to be live *at that moment*, and freed from
+whatever was live at the (different) moment of `unmount`. Mount a pak inside an
+arena scope and close it outside, and the free goes through the wrong allocator.
+The pool was worse still: its allocator was captured by whichever call happened
+to open the first pak in the process, which no caller can see or control.
+
+`init` pins one allocator, stored in the package and passed explicitly at every
+internal allocation and free. Nothing in this package reads `context.allocator`
+for its own bookkeeping any more. The allocator passed to `read` is unaffected —
+that is the caller's memory and still defaults to `context.allocator`.
+
+It is required rather than optional because an optional `init` leaves the bug in
+place for anyone who skips it, and it matches how the engine's other managers
+work — `init_scene_manager`, `init_registry`, `init_component_managers` — down to
+reusing `MANAGER_ALREADY_INITIALIZED` and `DESTROYING_UNINITIALIZED_MANAGER`.
+
 ### Why the encryption check comes before the compression check
 
 In `view_index` the order of those two checks is load-bearing, and reversing it
@@ -325,12 +373,12 @@ Ranked by how likely they are to cause a bad afternoon.
 
 **1. None of this is thread-safe.** The archive pool is global mutable state, and
 `view`/`read` write to the per-entry verification bitset. Two threads touching
-the same pak — or `open`/`close` on any thread while another reads — is a data
+the same pak — or `mount`/`unmount` on any thread while another reads — is a data
 race. `verify_crc` is a global too. If asset loading ever moves to a worker
 thread, this needs a lock or per-thread pools, and nothing here will warn you.
 
 **2. `view` results die with the pak.** They point into the mapping. After
-`close` they are dangling, and nothing detects this. Anything outliving the pak
+`unmount` they are dangling, and nothing detects this. Anything outliving the pak
 must be `read` or cloned. The `pak_scene` example clones every string it keeps
 for exactly this reason.
 
@@ -386,6 +434,12 @@ deleted (it lived in the gitignored `test/`):
   7-Zip. `Entry.encrypted` reports `true` for both. Tested with `verify_crc`
   both on and off, since the CRC check would otherwise mask the failure.
 - Tracking allocator: 0 leaks, 0 bad frees, after `pak.destroy()`.
+- Opening a pak while `context.allocator` is an arena and closing it after that
+  arena is gone: 0 leaks, 0 bad frees. Confirmed to have teeth by reverting the
+  four allocation sites to implicit `context.allocator`, which makes the same
+  test panic with `Bad free of pointer`.
+- `init`/`destroy` report `MANAGER_ALREADY_INITIALIZED` and
+  `DESTROYING_UNINITIALIZED_MANAGER` on double-init and destroy-before-init.
 
 **Other measurements from the session:**
 

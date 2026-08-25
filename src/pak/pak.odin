@@ -6,8 +6,23 @@ human. See README.md in this directory for why each decision was made, what was
 actually measured, what is unverified, and a suggested order for auditing it.
 
 Read only access to a pak, which is a zip archive used as a directory that
-happens to live in one file. Where a loose asset is `C:/assets/pig.png`, the
-same asset inside a pak is `game.pak:assets/pig.png`.
+happens to live in one file. Mount it, read paths out of it, unmount it. The pak
+handle stands in for the directory those paths are relative to, the way a file
+path is relative to the folder it sits in.
+
+This package knows nothing about loose files. Choosing between an asset on disk
+and an asset in a pak belongs to the caller, and is usually one `when` in one
+procedure:
+
+	read_file :: proc(path: string) -> (data: []byte, ok: bool) {
+		when RELEASE_MODE {
+			bytes, code := pak.read(assets, path)
+			return bytes, code == .NONE
+		} else {
+			bytes, err := os.read_entire_file_from_path(path, context.allocator)
+			return bytes, err == nil
+		}
+	}
 
 A pak is immutable once built, so the whole file is mapped into memory and never
 copied out of again unless the caller asks for its own copy. Entries stored
@@ -19,18 +34,21 @@ valid archive. Compressed entries, nested paths, and archives from other tools
 all work, they just cannot be viewed in place.
 
 Example:
-	archive, code := pak.open("game.pak")
+	error.must(pak.init())
+	defer pak.destroy()
+
+	archive, code := pak.mount("game.pak")
 	if error.print(code) {
 		return
 	}
-	defer pak.close(archive)
+	defer pak.unmount(archive)
 
-	// a window onto the mapping, valid until close, nothing allocated
-	pixels := pak.view(archive, "assets/pig.png") or_else nil
-
-	// or a copy the caller owns
+	// a copy the caller owns
 	config, _ := pak.read_string(archive, "config/game.cfg")
 	defer delete(config)
+
+	// or a window onto the mapping, valid until unmount, nothing allocated
+	pixels, _ := pak.view(archive, "assets/pig.png")
 */
 
 import "core:c"
@@ -45,7 +63,7 @@ An open pak.
 
 This is a handle rather than the archive itself, so it can be copied, stored in
 whatever container suits, and compared, without any of the ways a struct holding
-a memory mapping could be broken by being moved. `close` invalidates every copy
+a memory mapping could be broken by being moved. `unmount` invalidates every copy
 of it at once, and using a stale one is reported rather than followed.
 */
 Pak :: distinct u32
@@ -113,13 +131,84 @@ Archive :: struct {
 @(private)
 archives: [dynamic]^Archive
 
+/*
+Where the package's own bookkeeping is allocated from.
+
+Pinned once by `init` and used explicitly everywhere internal state is allocated
+or freed. Nothing in this package reads `context.allocator` for its own use, on
+purpose: a pak is usually mounted and unmounted at different points in a program, and
+if those two moments saw different context allocators the pool and the paths
+inside it would be freed through the wrong one.
+*/
+@(private)
+allocator: mem.Allocator
+
+@(private)
+initialized: bool
+
 // A handle packs the pool slot into the low bits and a generation into the rest,
 // so a slot that gets reused does not answer to handles from its previous life.
 @(private) _SLOT_BITS :: 16
 @(private) _SLOT_MASK :: u32(1 << _SLOT_BITS) - 1
 
 /*
-Opens a pak by mapping it and reading its central directory.
+Prepares the package, pinning the allocator its handle pool and per pak
+bookkeeping will use for as long as it is up.
+
+Required before `mount`. It is not optional and does not happen lazily, because
+an allocator captured by whichever call happened to open the first pak is not
+something a caller can see or control.
+
+This does not affect where `read` puts the bytes it hands back. Those still come
+from the allocator passed to the call, defaulting to `context.allocator`.
+
+Inputs:
+- allocator: Where the pool and each open pak's bookkeeping is allocated from
+
+Returns:
+- `.NONE`, or `.MANAGER_ALREADY_INITIALIZED` if the package is already up
+*/
+init :: proc(alloc := context.allocator) -> error.Code {
+	if initialized {
+		return .MANAGER_ALREADY_INITIALIZED
+	}
+	allocator = alloc
+	archives = make([dynamic]^Archive, allocator)
+	initialized = true
+	return .NONE
+}
+
+/*
+Unmounts every pak still mounted and releases the handle pool.
+
+Call this on shutdown. Handles do not survive it, and `mount` cannot be called
+again until `init` has been.
+
+Returns:
+- `.NONE`, or `.DESTROYING_UNINITIALIZED_MANAGER` if the package was never up
+*/
+destroy :: proc() -> error.Code {
+	if !initialized {
+		return .DESTROYING_UNINITIALIZED_MANAGER
+	}
+
+	for archive in archives {
+		if archive.used {
+			mz_zip_reader_end(&archive.zip)
+			_release(archive)
+		}
+		free(archive, allocator)
+	}
+	delete(archives)
+
+	archives = nil
+	allocator = {}
+	initialized = false
+	return .NONE
+}
+
+/*
+Mounts a pak by mapping it and reading its central directory.
 
 Nothing is decompressed and nothing is copied. The file itself is closed before
 this returns, since the mapping keeps the pages alive on its own.
@@ -131,10 +220,12 @@ Inputs:
   case sensitive filesystem the game is shipped to
 
 Returns:
-- p: A handle to the open pak, or `INVALID` on failure
+- p: A handle to the mounted pak, or `INVALID` on failure
 - code: `.NONE`, or why the archive could not be opened
 */
-open :: proc(path: string, case_sensitive := true) -> (p: Pak, code: error.Code) {
+mount :: proc(path: string, case_sensitive := true) -> (p: Pak, code: error.Code) {
+	assert(initialized, "mount: pak package not initialized, call pak.init first")
+
 	file, open_err := os.open(path, {.Read})
 	if open_err != nil {
 		return INVALID, .PAK_OPEN_FAILED
@@ -154,7 +245,7 @@ open :: proc(path: string, case_sensitive := true) -> (p: Pak, code: error.Code)
 
 	archive := _acquire()
 	archive.mapping = mapping
-	archive.path = strings.clone(path)
+	archive.path = strings.clone(path, allocator)
 	archive.case_sensitive = case_sensitive
 
 	mz_zip_zero_struct(&archive.zip)
@@ -165,21 +256,21 @@ open :: proc(path: string, case_sensitive := true) -> (p: Pak, code: error.Code)
 	}
 
 	total := int(mz_zip_reader_get_num_files(&archive.zip))
-	archive.verified = make([]u64, (total + 63) / 64)
+	archive.verified = make([]u64, (total + 63) / 64, allocator)
 	return _handle(archive), .NONE
 }
 
 /*
-Closes a pak and releases its mapping.
+Unmounts a pak and releases its mapping.
 
 Every handle to it becomes stale at once. Anything `view` handed out points into
-the mapping and must not be touched afterwards. Closing an already closed pak
-does nothing, so this is safe to `defer` after an `open` that may have failed.
+the mapping and must not be touched afterwards. Unmounting an already unmounted pak
+does nothing, so this is safe to `defer` after a `mount` that may have failed.
 
 Inputs:
 - p: The pak to close
 */
-close :: proc(p: Pak) {
+unmount :: proc(p: Pak) {
 	archive := _archive(p)
 	if archive == nil {
 		return
@@ -189,28 +280,27 @@ close :: proc(p: Pak) {
 }
 
 /*
-Reports whether a handle still refers to an open pak.
+Reports whether a handle still refers to a mounted pak.
 
 Inputs:
 - p: The handle to check
 
 Returns:
-- true when `p` is open
+- true when `p` is mounted
 */
 is_open :: proc(p: Pak) -> bool {
 	return _archive(p) != nil
 }
 
 /*
-Reports the path a pak was opened from, for diagnostics and for resolving
-`game.pak:assets/pig.png` style references.
+Reports the path a pak was mounted from, for diagnostics.
 
 Inputs:
 - p: The pak to ask about
 
 Returns:
-- The path given to `open`, valid until the pak is closed, or "" for a stale
-  handle
+- The path given to `mount`, valid until the pak is unmounted, or "" for a
+  stale handle
 */
 path_of :: proc(p: Pak) -> string {
 	archive := _archive(p)
@@ -365,7 +455,7 @@ Inputs:
 - name: The path inside the pak
 
 Returns:
-- data: A window onto the mapping, valid until the pak is closed
+- data: A window onto the mapping, valid until the pak is unmounted
 - code: `.NONE`, or why the entry could not be viewed
 
 Example:
@@ -397,7 +487,7 @@ Inputs:
 - index: The entry's position in the central directory
 
 Returns:
-- data: A window onto the mapping, valid until the pak is closed
+- data: A window onto the mapping, valid until the pak is unmounted
 - code: `.NONE`, or why the entry could not be viewed
 */
 view_index :: proc(p: Pak, index: int) -> (data: []byte, code: error.Code) {
@@ -549,55 +639,12 @@ Inputs:
 - name: The path inside the pak
 
 Returns:
-- text: A window onto the mapping, valid until the pak is closed
+- text: A window onto the mapping, valid until the pak is unmounted
 - code: `.NONE`, or why the entry could not be viewed
 */
 view_string :: proc(p: Pak, name: string) -> (text: string, code: error.Code) {
 	data := view(p, name) or_return
 	return string(data), .NONE
-}
-
-/*
-Splits a `game.pak:assets/pig.png` reference into the archive and the path
-inside it.
-
-The split is on the last colon rather than the first, so an absolute Windows
-path such as `C:/game/game.pak:assets/pig.png` still comes apart correctly.
-
-Inputs:
-- reference: The reference to split
-
-Returns:
-- archive_path: The pak to open
-- name: The path inside it
-- ok: false when the reference names no entry
-*/
-split_reference :: proc(reference: string) -> (archive_path, name: string, ok: bool) {
-	colon := strings.last_index_byte(reference, ':')
-	if colon <= 0 || colon == len(reference) - 1 {
-		return "", "", false
-	}
-	return reference[:colon], reference[colon + 1:], true
-}
-
-/*
-Finds an already open pak by the path it was opened from, so a reference can be
-resolved without opening the archive again.
-
-Inputs:
-- archive_path: The path given to `open`
-
-Returns:
-- p: The open pak, or `INVALID`
-- found: Whether any open pak was opened from that path
-*/
-find :: proc(archive_path: string) -> (p: Pak, found: bool) {
-	for archive in archives {
-		if archive.used && archive.path == archive_path {
-			return _handle(archive), true
-		}
-	}
-	return INVALID, false
 }
 
 /*
@@ -655,7 +702,7 @@ _acquire :: proc() -> ^Archive {
 		}
 	}
 
-	archive := new(Archive)
+	archive := new(Archive, allocator)
 	archive.slot = len(archives)
 	archive.generation = 1
 	archive.used = true
@@ -672,8 +719,8 @@ Inputs:
 @(private)
 _release :: proc(archive: ^Archive) {
 	_unmap(archive.mapping)
-	delete(archive.path)
-	delete(archive.verified)
+	delete(archive.path, allocator)
+	delete(archive.verified, allocator)
 	archive.mapping = nil
 	archive.path = ""
 	archive.verified = nil
@@ -715,22 +762,6 @@ _verify :: proc(archive: ^Archive, index: int, data: []byte, crc: u32) -> bool {
 	return true
 }
 
-/*
-Closes every pak still open and releases the handle pool.
-
-Call this on shutdown. Handles do not survive it.
-*/
-destroy :: proc() {
-	for archive in archives {
-		if archive.used {
-			mz_zip_reader_end(&archive.zip)
-			_release(archive)
-		}
-		free(archive)
-	}
-	delete(archives)
-	archives = nil
-}
 
 /*
 Looks up an entry's central directory record by name.

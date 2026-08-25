@@ -114,3 +114,4 @@ get_entity_name :: proc(entity_id: entity.Id) -> string {
 _free_entity :: proc(entity_name: ^string) {
 	delete(entity_name^)
 }
+
