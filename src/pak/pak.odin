@@ -51,6 +51,7 @@ Example:
 	pixels, _ := pak.view(archive, "assets/pig.png")
 */
 
+import "base:intrinsics"
 import "core:c"
 import "core:hash"
 import "core:mem"
@@ -108,6 +109,43 @@ Entry :: struct {
 }
 
 /*
+A path reduced to a number, for addressing an entry without carrying its name.
+
+Cooked data can store one of these instead of a path, which is smaller to store,
+fixed size to parse, and turns a lookup from a run of string comparisons into a
+single map probe. The path itself is then only needed at build time.
+
+This is FNV-1a 64 over the raw bytes of the path, chosen because it is four
+lines in any language: the export tooling has to produce byte identical hashes
+and should not need a library to do it.
+
+	# the same hash, in Python
+	def pak_hash(path):
+	    h = 0xcbf29ce484222325
+	    for b in path.encode("utf-8"):
+	        h = ((h ^ b) * 0x100000001b3) & 0xFFFFFFFFFFFFFFFF
+	    return h
+*/
+Hash :: distinct u64
+
+/*
+Hashes a path the way the entries in a pak were hashed.
+
+Case sensitive and separator sensitive, so it hashes exactly the name stored in
+the archive. `textures/rock.png` and `Textures/Rock.png` are different keys, the
+same as they are different names.
+
+Inputs:
+- path: The path inside a pak
+
+Returns:
+- The key that addresses it
+*/
+hash_path :: proc(path: string) -> Hash {
+	return Hash(hash.fnv64a(transmute([]byte)path))
+}
+
+/*
 An open archive and the mapping it reads from.
 
 Heap allocated and only ever reached through `archives`, because miniz keeps a
@@ -122,6 +160,10 @@ Archive :: struct {
 	// mapping cannot change underneath us, so an entry that verified once stays
 	// verified, and viewing it again is free.
 	verified: []u64,
+	// Every entry's name hashed, so cooked data can address entries by number.
+	// Built at mount, read only afterwards, which is what makes it safe to look
+	// up from several threads at once.
+	by_hash: map[Hash]int,
 	slot: int,
 	generation: u32,
 	case_sensitive: bool,
@@ -257,7 +299,51 @@ mount :: proc(path: string, case_sensitive := true) -> (p: Pak, code: error.Code
 
 	total := int(mz_zip_reader_get_num_files(&archive.zip))
 	archive.verified = make([]u64, (total + 63) / 64, allocator)
+
+	if code = _build_hash_index(archive, total); code != .NONE {
+		mz_zip_reader_end(&archive.zip)
+		_release(archive)
+		return INVALID, code
+	}
 	return _handle(archive), .NONE
+}
+
+/*
+Hashes every entry name so entries can be addressed by number.
+
+Two names hashing the same would make one of them unreachable, so this reports
+it rather than letting the archive mount. Every name is known here, which is the
+only place a collision can be caught before it becomes a mysterious missing
+asset at runtime.
+
+Inputs:
+- archive: The archive to index
+- total: How many entries it holds
+
+Returns:
+- `.NONE`, or `.PAK_CORRUPT` if two names collide, or a record could not be read
+*/
+@(private)
+_build_hash_index :: proc(archive: ^Archive, total: int) -> error.Code {
+	archive.by_hash = make(map[Hash]int, total, allocator)
+
+	record: Zip_Archive_File_Stat
+	for i in 0 ..< total {
+		if !mz_zip_reader_file_stat(&archive.zip, c.uint(i), &record) {
+			return _translate_error(mz_zip_get_last_error(&archive.zip))
+		}
+		if bool(record.is_directory) {
+			continue
+		}
+
+		name := string(cstring(raw_data(record.filename[:])))
+		key := hash_path(name)
+		if _, taken := archive.by_hash[key]; taken {
+			return .PAK_CORRUPT
+		}
+		archive.by_hash[key] = i
+	}
+	return .NONE
 }
 
 /*
@@ -334,7 +420,7 @@ Inputs:
 Returns:
 - true when `name` is present
 */
-contains :: proc(p: Pak, name: string) -> bool {
+contains_by_name :: proc(p: Pak, name: string) -> bool {
 	archive := _archive(p)
 	if archive == nil {
 		return false
@@ -354,7 +440,7 @@ Returns:
 - size: The entry's size in bytes
 - code: `.NONE`, or why it could not be looked up
 */
-size_of_entry :: proc(p: Pak, name: string) -> (size: u64, code: error.Code) {
+size_of_entry_by_name :: proc(p: Pak, name: string) -> (size: u64, code: error.Code) {
 	record := _record(p, name) or_return
 	return record.uncomp_size, .NONE
 }
@@ -370,7 +456,7 @@ Returns:
 - entry: The entry's record, with `name` left empty since the caller supplied it
 - code: `.NONE`, or why it could not be looked up
 */
-stat :: proc(p: Pak, name: string) -> (entry: Entry, code: error.Code) {
+stat_by_name :: proc(p: Pak, name: string) -> (entry: Entry, code: error.Code) {
 	record := _record(p, name) or_return
 	return _to_entry(&record, "", nil), .NONE
 }
@@ -465,7 +551,7 @@ Example:
 		pixels, code = pak.read(archive, "assets/pig.png")
 	}
 */
-view :: proc(p: Pak, name: string) -> (data: []byte, code: error.Code) {
+view_by_name :: proc(p: Pak, name: string, verify := true) -> (data: []byte, code: error.Code) {
 	archive := _archive(p)
 	if archive == nil {
 		return nil, .PAK_INVALID_HANDLE
@@ -475,7 +561,7 @@ view :: proc(p: Pak, name: string) -> (data: []byte, code: error.Code) {
 	if !found {
 		return nil, .PAK_ENTRY_NOT_FOUND
 	}
-	return view_index(p, int(index))
+	return view_index(p, int(index), verify)
 }
 
 /*
@@ -490,7 +576,7 @@ Returns:
 - data: A window onto the mapping, valid until the pak is unmounted
 - code: `.NONE`, or why the entry could not be viewed
 */
-view_index :: proc(p: Pak, index: int) -> (data: []byte, code: error.Code) {
+view_index :: proc(p: Pak, index: int, verify := true) -> (data: []byte, code: error.Code) {
 	archive := _archive(p)
 	if archive == nil {
 		return nil, .PAK_INVALID_HANDLE
@@ -526,7 +612,7 @@ view_index :: proc(p: Pak, index: int) -> (data: []byte, code: error.Code) {
 	}
 
 	data = archive.mapping[start:end]
-	if !_verify(archive, index, data, record.crc32) {
+	if verify && !_verify(archive, index, data, record.crc32) {
 		return nil, .PAK_CORRUPT
 	}
 	return data, .NONE
@@ -550,7 +636,7 @@ Returns:
 - data: The entry's contents, to be freed with `delete`, or nil on failure
 - code: `.NONE`, or why the entry could not be read
 */
-read :: proc(p: Pak, name: string, allocator := context.allocator) -> (data: []byte, code: error.Code) {
+read_by_name :: proc(p: Pak, name: string, allocator := context.allocator) -> (data: []byte, code: error.Code) {
 	archive := _archive(p)
 	if archive == nil {
 		return nil, .PAK_INVALID_HANDLE
@@ -625,8 +711,8 @@ Returns:
 - text: The entry's contents, to be freed with `delete`, or "" on failure
 - code: `.NONE`, or why the entry could not be read
 */
-read_string :: proc(p: Pak, name: string, allocator := context.allocator) -> (text: string, code: error.Code) {
-	data := read(p, name, allocator) or_return
+read_string_by_name :: proc(p: Pak, name: string, allocator := context.allocator) -> (text: string, code: error.Code) {
+	data := read_by_name(p, name, allocator) or_return
 	return string(data), .NONE
 }
 
@@ -642,8 +728,8 @@ Returns:
 - text: A window onto the mapping, valid until the pak is unmounted
 - code: `.NONE`, or why the entry could not be viewed
 */
-view_string :: proc(p: Pak, name: string) -> (text: string, code: error.Code) {
-	data := view(p, name) or_return
+view_string_by_name :: proc(p: Pak, name: string) -> (text: string, code: error.Code) {
+	data := view_by_name(p, name) or_return
 	return string(data), .NONE
 }
 
@@ -721,7 +807,9 @@ _release :: proc(archive: ^Archive) {
 	_unmap(archive.mapping)
 	delete(archive.path, allocator)
 	delete(archive.verified, allocator)
+	delete(archive.by_hash)
 	archive.mapping = nil
+	archive.by_hash = nil
 	archive.path = ""
 	archive.verified = nil
 	archive.used = false
@@ -750,15 +838,20 @@ _verify :: proc(archive: ^Archive, index: int, data: []byte, crc: u32) -> bool {
 	}
 
 	word, bit := index / 64, u64(1) << u32(index % 64)
-	if word < len(archive.verified) && archive.verified[word] & bit != 0 {
+	if word >= len(archive.verified) {
+		return hash.crc32(data) == crc
+	}
+
+	// Atomic because reads may come from several threads at once. Two threads
+	// verifying the same entry simultaneously both do the work and both set the
+	// same bit, which is wasteful once and correct always.
+	if intrinsics.atomic_load_explicit(&archive.verified[word], .Relaxed) & bit != 0 {
 		return true
 	}
 	if hash.crc32(data) != crc {
 		return false
 	}
-	if word < len(archive.verified) {
-		archive.verified[word] |= bit
-	}
+	intrinsics.atomic_or_explicit(&archive.verified[word], bit, .Relaxed)
 	return true
 }
 
@@ -887,6 +980,231 @@ _to_entry :: proc(record: ^Zip_Archive_File_Stat, name: string, allocator: Maybe
 		entry.name = strings.clone_from_cstring(cstring(raw_data(record.filename[:])), allocator.?)
 	}
 	return entry
+}
+
+/*
+Asks the operating system to start bringing an entry into memory, and returns
+without waiting.
+
+Nothing in this package issues a read. An entry is a window onto a mapped file,
+and the bytes arrive when they are touched, as a page fault on whichever thread
+touched them. That is the one thing about a mapped pak that can surprise you: a
+`view` costs nothing, and then reading from what it returned can block for a
+disk seek, on the main thread, with no call in sight to blame.
+
+This is the fix. Call it when you know an asset is coming, do other work, and by
+the time anything reads the bytes the pages are already there.
+
+Advisory, so it cannot fail in a way worth acting on: if the operating system
+declines, the only consequence is that the fault happens later after all.
+
+Inputs:
+- p: The pak the entry is in
+- name: The path inside the pak
+
+Returns:
+- `.NONE`, or why the entry could not be located. Not whether it was prefetched
+
+Example:
+	// on a loading thread, well before the asset is needed
+	pak.prefetch(assets, "levels/intro/terrain.mesh")
+*/
+prefetch_by_name :: proc(p: Pak, name: string) -> error.Code {
+	// Unverified deliberately: verifying would touch every page, which is the
+	// blocking work this call exists to avoid.
+	data := view_by_name(p, name, verify = false) or_return
+	_prefetch(data)
+	return .NONE
+}
+
+/*
+Reads part of an entry into a buffer the caller already has, for streaming an
+asset in pieces rather than materialising all of it.
+
+Only stored entries can be read in part, since a compressed one has to be
+inflated from its start. This reports `.PAK_ENTRY_COMPRESSED` for those.
+
+Nothing is allocated, and only the pages covering the requested range are
+touched, so reading the first 64KB of a 40MB entry costs 64KB of paging rather
+than 40MB.
+
+The CRC-32 covers a whole entry, so it cannot be checked against a piece of one.
+Partial reads are unverified regardless of `verify_crc`.
+
+Inputs:
+- p: The pak the entry is in
+- name: The path inside the pak
+- buffer: Where the bytes go, and by its length how many are wanted
+- offset: How far into the entry to start
+
+Returns:
+- n: How many bytes were read, less than `len(buffer)` at the end of the entry
+- code: `.NONE`, or why the entry could not be read
+
+Example:
+	chunk: [64 * 1024]byte
+	for offset := 0; ; {
+		n, code := pak.read_at(assets, "audio/theme.ogg", chunk[:], offset)
+		if code != .NONE || n == 0 {
+			break
+		}
+		feed(chunk[:n])
+		offset += n
+	}
+*/
+read_at_by_name :: proc(p: Pak, name: string, buffer: []byte, offset: int) -> (n: int, code: error.Code) {
+	if offset < 0 {
+		return 0, .PAK_ENTRY_NOT_FOUND
+	}
+
+	// A view of the whole entry is only an address range, so taking one to serve
+	// a piece of it costs nothing and pages in nothing.
+	whole := view_unverified_by_name(p, name) or_return
+	if offset >= len(whole) {
+		return 0, .NONE
+	}
+
+	n = copy(buffer, whole[offset:])
+	return n, .NONE
+}
+
+/*
+Hands back an entry in place without checking it, for callers that are going to
+read only part of it.
+
+`view` verifies the whole entry against its CRC-32, which means touching every
+page of it. That is the right default, and exactly wrong when the point was to
+read a slice: verifying a 40MB entry to read 64KB of it defeats the exercise.
+
+Inputs:
+- p: The pak the entry is in
+- name: The path inside the pak
+
+Returns:
+- data: A window onto the mapping, valid until the pak is unmounted
+- code: `.NONE`, or why the entry could not be viewed
+*/
+view_unverified_by_name :: proc(p: Pak, name: string) -> (data: []byte, code: error.Code) {
+	return view_by_name(p, name, verify = false)
+}
+
+// --- Addressing an entry by hash ---------------------------------------------
+//
+// Everything that takes a path also takes a `Hash` of one. Cooked data can then
+// carry an 8 byte key instead of a string, and a lookup becomes a single map
+// probe instead of a binary search through names.
+//
+//	pak.read(archive, "textures/rock.png")             // by path
+//	pak.read(archive, pak.hash_path("textures/rock.png"))  // the same entry
+//
+// The hash index is built at mount and never written to afterwards, so looking
+// up by hash is safe from as many threads as looking up by path.
+
+read           :: proc{read_by_name, read_by_hash}
+read_string    :: proc{read_string_by_name, read_string_by_hash}
+view           :: proc{view_by_name, view_by_hash}
+view_string    :: proc{view_string_by_name, view_string_by_hash}
+contains       :: proc{contains_by_name, contains_by_hash}
+stat           :: proc{stat_by_name, stat_by_hash}
+size_of_entry  :: proc{size_of_entry_by_name, size_of_entry_by_hash}
+read_at        :: proc{read_at_by_name, read_at_by_hash}
+prefetch       :: proc{prefetch_by_name, prefetch_by_hash}
+view_unverified :: proc{view_unverified_by_name, view_unverified_by_hash}
+
+/*
+Finds the entry a hash addresses.
+
+Inputs:
+- p: The pak to search
+- key: The hash of the entry's path
+
+Returns:
+- index: The entry's position in the central directory
+- found: Whether the pak holds it
+*/
+index_of :: proc(p: Pak, key: Hash) -> (index: int, found: bool) {
+	archive := _archive(p)
+	if archive == nil {
+		return 0, false
+	}
+	index, found = archive.by_hash[key]
+	return index, found
+}
+
+// Reads an asset addressed by hash. See `read_by_name`.
+read_by_hash :: proc(p: Pak, key: Hash, allocator := context.allocator) -> ([]byte, error.Code) {
+	index, found := index_of(p, key)
+	if !found {
+		return nil, .PAK_ENTRY_NOT_FOUND
+	}
+	return read_index(p, index, allocator)
+}
+
+// Reads an asset addressed by hash, as text. See `read_string_by_name`.
+read_string_by_hash :: proc(p: Pak, key: Hash, allocator := context.allocator) -> (text: string, code: error.Code) {
+	data := read_by_hash(p, key, allocator) or_return
+	return string(data), .NONE
+}
+
+// Hands back an asset addressed by hash, in place. See `view_by_name`.
+view_by_hash :: proc(p: Pak, key: Hash, verify := true) -> ([]byte, error.Code) {
+	index, found := index_of(p, key)
+	if !found {
+		return nil, .PAK_ENTRY_NOT_FOUND
+	}
+	return view_index(p, index, verify)
+}
+
+// Hands back an asset addressed by hash, in place, as text.
+view_string_by_hash :: proc(p: Pak, key: Hash) -> (text: string, code: error.Code) {
+	data := view_by_hash(p, key) or_return
+	return string(data), .NONE
+}
+
+// `view_by_hash` without the CRC check, for reading only part of an entry.
+view_unverified_by_hash :: proc(p: Pak, key: Hash) -> ([]byte, error.Code) {
+	return view_by_hash(p, key, verify = false)
+}
+
+// Whether the pak holds the asset a hash addresses.
+contains_by_hash :: proc(p: Pak, key: Hash) -> bool {
+	_, found := index_of(p, key)
+	return found
+}
+
+// The record for the asset a hash addresses, without unpacking it.
+stat_by_hash :: proc(p: Pak, key: Hash) -> (Entry, error.Code) {
+	index, found := index_of(p, key)
+	if !found {
+		return {}, .PAK_ENTRY_NOT_FOUND
+	}
+	return stat_index(p, index, context.temp_allocator)
+}
+
+// The unpacked size of the asset a hash addresses.
+size_of_entry_by_hash :: proc(p: Pak, key: Hash) -> (size: u64, code: error.Code) {
+	entry := stat_by_hash(p, key) or_return
+	return entry.size, .NONE
+}
+
+// Starts paging in the asset a hash addresses. See `prefetch_by_name`.
+prefetch_by_hash :: proc(p: Pak, key: Hash) -> error.Code {
+	data := view_by_hash(p, key, verify = false) or_return
+	_prefetch(data)
+	return .NONE
+}
+
+// Reads part of the asset a hash addresses. See `read_at_by_name`.
+read_at_by_hash :: proc(p: Pak, key: Hash, buffer: []byte, offset: int) -> (n: int, code: error.Code) {
+	if offset < 0 {
+		return 0, .PAK_ENTRY_NOT_FOUND
+	}
+
+	whole := view_unverified_by_hash(p, key) or_return
+	if offset >= len(whole) {
+		return 0, .NONE
+	}
+	return copy(buffer, whole[offset:]), .NONE
 }
 
 /*

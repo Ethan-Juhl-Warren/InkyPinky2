@@ -156,6 +156,30 @@ modified.
 | `read(p, name, allocator) -> ([]byte, error.Code)` | Owned copy. Any compression method. `delete` it. |
 | `read_string(p, name, allocator) -> (string, error.Code)` | Same, as a string. |
 | `read_index(p, index, allocator) -> ([]byte, error.Code)` | By central-directory index. |
+| `read_at(p, name, buffer, offset) -> (int, error.Code)` | Part of an entry into a buffer you own. Nothing allocated, only the pages covering that range are touched. Stored entries only. |
+| `prefetch(p, name) -> error.Code` | Starts paging an entry in and returns immediately. |
+| `view_unverified(p, name) -> ([]byte, error.Code)` | `view` without the CRC check, for when you intend to read only part of it. |
+
+### Asynchronous reads
+
+Nothing here issues a read. An entry is a window onto a mapped file, and the
+bytes arrive when they are touched — as a page fault, on whichever thread
+touched them. So a `view` costs nothing and then reading from what it returned
+can block for a disk seek, on the main thread, with no call in sight to blame.
+
+`prefetch` is the answer: it asks the OS to bring an entry in and returns
+immediately (`PrefetchVirtualMemory` on Windows, `posix_madvise(WILLNEED)`
+elsewhere). Call it when you know an asset is coming, do other work, and the
+fault never happens.
+
+This package deliberately has no threads of its own. It is safe to call from
+yours, and `prefetch` lets you overlap I/O with work — deciding *what* to load
+and *when* belongs to a job system above, not here.
+
+Streaming is `read_at`: only the pages covering the range you ask for are
+touched, so reading the first 64KB of a 40MB entry costs 64KB of paging rather
+than 40MB. The CRC covers a whole entry so it cannot be checked against a piece
+of one, and partial reads are unverified regardless of `verify_crc`.
 
 `view` on a compressed entry returns `PAK_ENTRY_COMPRESSED`. That is a
 `WARNING`-severity code, not a failure — it means "use `read` instead":
@@ -371,11 +395,18 @@ library and simply not bound; if a save *bundle* is ever wanted, it is available
 
 Ranked by how likely they are to cause a bad afternoon.
 
-**1. None of this is thread-safe.** The archive pool is global mutable state, and
-`view`/`read` write to the per-entry verification bitset. Two threads touching
-the same pak — or `mount`/`unmount` on any thread while another reads — is a data
-race. `verify_crc` is a global too. If asset loading ever moves to a worker
-thread, this needs a lock or per-thread pools, and nothing here will warn you.
+**1. Reads are thread-safe, mounting is not.** `view`, `read`, `read_at`,
+`prefetch` and the inspection calls can run on as many threads as you like,
+against the same pak or different ones — the verification bitset is updated
+atomically and miniz does not touch the shared archive on a successful read.
+
+`init`, `mount`, `unmount` and `destroy` are **not** safe to call while another
+thread is reading. They mutate the handle pool. Mount everything at startup and
+unmount at shutdown, which is how you would use them anyway.
+
+Two smaller ones: `verify_crc` is a global, so flipping it mid-flight races with
+readers — set it once before threads start. And `last_error_string` reads a field
+miniz writes on failure paths, so it is only meaningful single-threaded.
 
 **2. `view` results die with the pak.** They point into the mapping. After
 `unmount` they are dangling, and nothing detects this. Anything outliving the pak
@@ -440,6 +471,11 @@ deleted (it lived in the gitignored `test/`):
   test panic with `Bad free of pointer`.
 - `init`/`destroy` report `MANAGER_ALREADY_INITIALIZED` and
   `DESTROYING_UNINITIALIZED_MANAGER` on double-init and destroy-before-init.
+- 8 threads × 200 iterations doing `view` and `read` against the same mounted
+  pak, 3200 reads total: 0 failures, 0 leaks, 0 bad frees, on both platforms.
+- Streaming a 32MB stored entry via `read_at` in 512 × 64KB pieces reproduces the
+  entry byte for byte, and reading past the end returns `n=0, .NONE` rather than
+  an error.
 
 **Other measurements from the session:**
 

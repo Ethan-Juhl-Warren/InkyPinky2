@@ -30,7 +30,8 @@ Code :: enum i32 {
 	PAK_ENTRY_NOT_FOUND,
 	PAK_ENTRY_COMPRESSED,
 	PAK_INVALID_HANDLE,
-
+	FILE_NOT_FOUND,
+	CANNOT_OPEN_FILE
 }
 
 /*
@@ -158,6 +159,16 @@ INFO := [Code]Info {
 		message = "Pak handle does not refer to an open pak",
 		hint = "the pak was closed, or the handle was never returned by pak.open",
 		severity = .ERROR,
+	},
+	.FILE_NOT_FOUND = {
+		message = "File could not be found",
+		hint = "check path and unsure file exists",
+		severity = .ERROR
+	},
+	.CANNOT_OPEN_FILE = {
+		message = "File format is invalid or corrupted",
+		hint = "validate file integrity and ensure file is of correct format",
+		severity = .ERROR
 	},
 }
 

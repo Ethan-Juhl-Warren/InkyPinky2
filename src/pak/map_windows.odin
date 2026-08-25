@@ -55,3 +55,31 @@ _unmap :: proc(data: []byte) {
 		win32.UnmapViewOfFile(raw_data(data))
 	}
 }
+
+/*
+Asks the operating system to bring a range of a mapping into memory, without
+waiting for it.
+
+This is what makes reading from a pak asynchronous. Nothing in this package
+issues a read: touching a page that is not resident faults, and that fault
+blocks whichever thread touched it. Prefetching ahead of time means the pages
+are already there when the read finally happens, so the fault never occurs.
+
+Advisory. The operating system is free to ignore it, and a failure here is not
+worth reporting because the only consequence is a fault later.
+
+Inputs:
+- data: The range to bring in, a slice of a mapping
+*/
+@(private)
+_prefetch :: proc(data: []byte) {
+	if len(data) == 0 {
+		return
+	}
+
+	range := win32.WIN32_MEMORY_RANGE_ENTRY {
+		VirtualAddress = raw_data(data),
+		NumberOfBytes = win32.SIZE_T(len(data)),
+	}
+	win32.PrefetchVirtualMemory(win32.GetCurrentProcess(), 1, &range, 0)
+}
