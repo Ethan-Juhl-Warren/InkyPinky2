@@ -53,12 +53,14 @@ main :: proc() {
     // messages, we decide when it closes, and all the engine ever sees of it
     // is the handle inside Surface.
     if !window_open(WINDOW_TITLE, WINDOW_WIDTH, WINDOW_HEIGHT) {
+        fmt.printfln("ERROR: Window could not be closed.")
         return
     }
     defer window_close()
 
     kind, display, handle, width, height := window_surface()
     if engine_init(kind, display, handle, width, height) == 0 {
+        fmt.printfln("ERROR: Unable to start engine")
         return
     }
     defer engine_destroy()
