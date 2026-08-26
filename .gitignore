@@ -1,8 +1,6 @@
 *.plan
 *.exe
 *.bat
-*.ps1
-*.sh
 
 osl.json
 
