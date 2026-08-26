@@ -115,16 +115,20 @@ linux-engine: vendor/miniz/libminiz.a
 # build/libengine.so sitting beside it.
 #
 # make turns the $$ into a single $, and the single quotes stop the shell doing
-# anything further with it. Double quotes plus a backslash also works right up
-# until some layer expands it anyway, and then $ORIGIN arrives at ld as a bare
-# argument and it reports
+# anything further with it.
+#
+# -rpath=DIR rather than -rpath,DIR on purpose. clang splits a -Wl,a,b argument
+# on the commas and hands ld two separate arguments, so with the comma form
+# -rpath and $ORIGIN can end up detached from one another. ld then has no idea
+# $ORIGIN was meant to be an rpath, treats it as a file to link, and says
 #
 #   cannot find $ORIGIN: No such file or directory
 #
-# which reads like a missing file and is really a quoting fault.
+# which reads like a missing file and is really an argument that came apart.
+# The = form is a single token the whole way down and cannot split.
 linux-runtime:
 	mkdir -p build
-	odin build src/runtime -out:build/inky '-extra-linker-flags:-Lbuild -Wl,-rpath,$$ORIGIN'
+	odin build src/runtime -out:build/inky '-extra-linker-flags:-Lbuild -Wl,-rpath=$$ORIGIN'
 
 vendor/miniz/libminiz.a: vendor/miniz/miniz.c vendor/miniz/miniz.h
 	cc -O2 -fPIC -D_LARGEFILE64_SOURCE=1 -DMINIZ_DISABLE_ZIP_READER_CRC32_CHECKS -c vendor/miniz/miniz.c -o vendor/miniz/miniz.o
