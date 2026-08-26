@@ -42,11 +42,27 @@
 # because vendor:OpenGL resolves every entry point through a function pointer at
 # runtime rather than importing it.
 #
-# Linux is the exception and it has two runtime dependencies that Windows does
+# Linux is the exception and it has two link time dependencies that Windows does
 # not. The engine links libEGL, which is how it turns a window into something
 # drawable there, and the runtime links libglfw, which Odin's bindings take from
-# the system rather than vendoring. Both come with any normal Mesa install, but
-# building needs their development packages present.
+# the system rather than vendoring.
+#
+#   Debian, Ubuntu   apt install libglfw3-dev libegl1-mesa-dev
+#   Fedora           dnf install glfw-devel mesa-libEGL-devel
+#   Arch             pacman -S glfw mesa
+#
+# The -dev packages specifically, not just the runtime ones. A machine that can
+# run graphical software already has libglfw.so.3 and libEGL.so.1, but the
+# linker resolves -lglfw against the unversioned libglfw.so symlink, and only
+# the development package ships that. The failure is
+#
+#   /usr/bin/ld: cannot find -lglfw
+#
+# and it means the package is missing, not the library.
+#
+# Linking glfw statically instead is not an option as things stand: Odin ships
+# prebuilt glfw for Windows and Darwin but not for Linux, so -define:GLFW_SHARED=false
+# panics at compile time unless a libglfw3.a is put in Odin's vendor/glfw/lib.
 #
 # Nothing links raylib any more. It was the temporary renderer and it took the
 # VCRUNTIME140.dll import with it when it went, which used to be documented here
@@ -92,9 +108,23 @@ linux-engine: vendor/miniz/libminiz.a
 	mkdir -p build
 	odin build src/engine -build-mode:dll -out:build/libengine.so
 
+# The whole -extra-linker-flags argument is in single quotes so that $ORIGIN
+# reaches the linker as those seven literal characters. It is not a variable to
+# be expanded here: the dynamic loader interprets it at run time, as "the
+# directory the executable is in", which is what lets build/inky find
+# build/libengine.so sitting beside it.
+#
+# make turns the $$ into a single $, and the single quotes stop the shell doing
+# anything further with it. Double quotes plus a backslash also works right up
+# until some layer expands it anyway, and then $ORIGIN arrives at ld as a bare
+# argument and it reports
+#
+#   cannot find $ORIGIN: No such file or directory
+#
+# which reads like a missing file and is really a quoting fault.
 linux-runtime:
 	mkdir -p build
-	odin build src/runtime -out:build/inky -extra-linker-flags:"-Lbuild -Wl,-rpath,\$$ORIGIN"
+	odin build src/runtime -out:build/inky '-extra-linker-flags:-Lbuild -Wl,-rpath,$$ORIGIN'
 
 vendor/miniz/libminiz.a: vendor/miniz/miniz.c vendor/miniz/miniz.h
 	cc -O2 -fPIC -D_LARGEFILE64_SOURCE=1 -DMINIZ_DISABLE_ZIP_READER_CRC32_CHECKS -c vendor/miniz/miniz.c -o vendor/miniz/miniz.o
