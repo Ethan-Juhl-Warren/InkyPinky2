@@ -10,10 +10,6 @@ import "core:strings"
 
 Id :: distinct u32
 
-SceneRegistry :: struct {
-
-}
-
 @(private)
 SceneManager :: struct {
 	entity_names: map[string]entity.Id,

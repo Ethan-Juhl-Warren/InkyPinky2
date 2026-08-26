@@ -21,9 +21,9 @@ bound at all because a pak is built by the export tooling rather than the engine
 Everything here is package private, the rest of the engine talks to `pak.odin`.
 */
 when ODIN_OS == .Windows {
-	foreign import miniz "../../vendor/miniz/miniz.lib"
+	foreign import miniz "../../../vendor/miniz/miniz.lib"
 } else {
-	foreign import miniz "../../vendor/miniz/libminiz.a"
+	foreign import miniz "../../../vendor/miniz/libminiz.a"
 }
 
 // Passed to `mz_zip_reader_locate_file_v2` to match entry names exactly rather

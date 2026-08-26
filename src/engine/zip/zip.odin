@@ -2,13 +2,13 @@ package zip
 
 /*
 WRITTEN BY CLAUDE OPUS 5 (Anthropic), 2026-08-25. Not reviewed line by line by a
-human. See src/pak/README.md.
+human. See src/engine/pak/README.md.
 
 Reading a zip archive that is already in memory.
 
 This package knows the zip format and nothing else. It does not open files, map
 them, cache anything or decide what an asset is. Hand it bytes and it will tell
-you what entries are in them and where. `src/pak` is what maps a file, holds the
+you what entries are in them and where. `src/engine/pak` is what maps a file, holds the
 handles and builds the indexes, and it is the only caller this expects.
 
 The split is worth keeping: everything here is a pure function of a byte slice,

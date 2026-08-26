@@ -7,7 +7,7 @@ Read-only access to game assets stored in a zip archive.
 ## Provenance
 
 **This package was written by Claude Opus 5 (Anthropic), in a session with Ethan
-Warren on 2026-08-25.** Every `.odin` file in `src/pak`, the vendored miniz
+Warren on 2026-08-25.** Every `.odin` file in `src/engine/pak`, the vendored miniz
 build wiring in the repository `Makefile`, and this document are machine
 written.
 
@@ -510,7 +510,7 @@ Be suspicious of all of the following. None of it has been exercised.
 - **Archives from tools other than Python's `zipfile` and .NET's
   `System.IO.Compression`.** Notably untested against 7-zip, Info-ZIP, and
   WinRAR output.
-- **Use by the engine.** Nothing in `src/` imports this package. It has only
+- **Use by the engine.** Nothing in `src/engine/` imports this package. It has only
   ever been driven by examples and a test harness.
 
 ---

@@ -1,8 +1,6 @@
 // City Outskirts — the scene the vertical slice opens on.
 // Comments are allowed, keys are unquoted, commas are optional.
 
-name = "City Outskirts"
-
 config = {
     gravity = [0, -9.8, 0]
     ambient = 0.25
