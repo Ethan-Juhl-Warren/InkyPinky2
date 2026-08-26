@@ -1,0 +1,51 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Inky Editor</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="menubar">
+      <span class="brand">Inky</span>
+      <span>File</span><span>Edit</span><span>Entity</span><span>Component</span><span>Window</span>
+    </div>
+
+    <div class="workspace">
+      <aside class="panel">
+        <header>Hierarchy</header>
+        <ul class="tree">
+          <li class="selected">main camera</li>
+          <li>ground</li>
+          <li>box</li>
+        </ul>
+      </aside>
+
+      <!--
+        The engine renders offscreen and the main process sends finished frames
+        here to be painted. It is an ordinary canvas, which is the whole point:
+        it sits in the layout like any other element, the rest of the interface
+        can draw over it, and it receives mouse events normally.
+      -->
+      <section class="panel">
+        <header>Scene</header>
+        <canvas id="viewport"></canvas>
+      </section>
+
+      <aside class="panel">
+        <header>Inspector</header>
+        <div class="field"><label>Position</label><span>0, 10, 20</span></div>
+        <div class="field"><label>Rotation</label><span>identity</span></div>
+        <div class="field"><label>Scale</label><span>1, 1, 1</span></div>
+        <div class="field"><label>FOV</label><span>45</span></div>
+      </aside>
+    </div>
+
+    <footer class="statusbar">
+      <span id="status">starting</span>
+      <span>click the viewport to look &middot; W A S D move &middot; Space up &middot; Shift down</span>
+    </footer>
+
+    <script>require('./dist/renderer.js');</script>
+  </body>
+</html>

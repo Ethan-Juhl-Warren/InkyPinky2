@@ -4,7 +4,6 @@ import "core:math/linalg"
 import "../registry"
 import "../error"
 import "core:math"
-import rl "vendor:raylib"
 
 @(private) camera_manager: CameraManager
 
@@ -273,45 +272,11 @@ camera_get_projection_matrix :: proc(entity_id: entity.Id, aspect, near, far: f3
 }
 
 /*
- * This is temp while raylib is acting as the renderer
- */
-main_camera_begin_draw :: proc() {
-    assert(camera_manager.initialized, "main_camera_begin_draw: camera manager not initialized, call init_camera_manager first")
-    camera, camera_found := registry.get_item(&camera_manager.camera_registry, camera_manager.main_camera)
-    error.must(camera_found)
+The begin_draw and end_draw procedures that used to live here were raylib's
+BeginMode3D and EndMode3D wrapped up, and they are gone with it. A camera does
+not begin or end anything now, it answers with a view matrix and a projection
+matrix and the renderer decides what to do with them.
 
-    pos := transform_get_position(camera_manager.main_camera)
-    up, _, forward := transform_get_orientation_local(camera_manager.main_camera)
-
-    rl.BeginMode3D({
-        fovy = camera.fovy,
-        projection = .PERSPECTIVE if camera.projection == .PERSPECTIVE else .ORTHOGRAPHIC,
-        position = pos,
-        target = pos + forward,
-        up = up
-    })
-}
-
-camera_begin_draw :: proc(entity_id: entity.Id) {
-    assert(camera_manager.initialized, "camera_begin_draw: camera manager not initialized, call init_camera_manager first")
-    camera, camera_found := registry.get_item(&camera_manager.camera_registry, entity_id)
-    error.must(camera_found)
-
-    pos := transform_get_position(entity_id)
-    up, _, forward := transform_get_orientation_local(entity_id)
-
-    rl.BeginMode3D({
-        fovy = camera.fovy,
-        projection = .PERSPECTIVE if camera.projection == .PERSPECTIVE else .ORTHOGRAPHIC,
-        position = pos,
-        target = pos + forward,
-        up = up
-    })
-}
-
-/*
- * This is temp while raylib is acting as the renderer
- */
-camera_end_draw :: proc() {
-    rl.EndMode3D()
-}
+camera_get_view_matrix and camera_get_projection_matrix above are the
+replacement, and they already existed.
+*/

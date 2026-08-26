@@ -8,6 +8,6 @@
   "verbose": true,
   "profile": "default",
   "profiles": [
-    { "name": "default", "os": "windows", "checker_path": ["src/runtime", "src/engine", "src/engine/registry", "src/engine/entity", "src/engine/error", "src/engine/scene", "src/engine/script", "src/engine/component"] }
+    { "name": "default", "os": "windows", "checker_path": ["src/runtime", "src/engine", "src/engine/registry", "src/engine/entity", "src/engine/error", "src/engine/render", "src/engine/scene", "src/engine/script", "src/engine/component"] }
   ]
 }

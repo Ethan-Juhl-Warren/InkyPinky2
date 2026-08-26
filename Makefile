@@ -34,11 +34,23 @@
 # what Linux has. Neither has to be installed: nmake ships with the MSVC Build
 # Tools and make is on any Linux that can already compile C.
 #
-# The result is self contained. raylib and box3d are linked as static libraries
-# by Odin's vendor bindings and miniz is built static here, so the engine library
-# is the only thing a front end has to ship beside its executable. On Windows it
-# does import VCRUNTIME140.dll, but that comes from Odin's prebuilt raylib.lib
-# and is there with or without miniz.
+# The result is close to self contained. box3d is linked as a static library by
+# Odin's vendor bindings and miniz is built static here, so on Windows the engine
+# library is the only thing a front end has to ship beside its executable: it
+# imports nothing but KERNEL32, ADVAPI32, bcrypt, GDI32, USER32 and OPENGL32,
+# all of which are part of Windows. OpenGL itself adds no link library at all,
+# because vendor:OpenGL resolves every entry point through a function pointer at
+# runtime rather than importing it.
+#
+# Linux is the exception and it has two runtime dependencies that Windows does
+# not. The engine links libEGL, which is how it turns a window into something
+# drawable there, and the runtime links libglfw, which Odin's bindings take from
+# the system rather than vendoring. Both come with any normal Mesa install, but
+# building needs their development packages present.
+#
+# Nothing links raylib any more. It was the temporary renderer and it took the
+# VCRUNTIME140.dll import with it when it went, which used to be documented here
+# as unavoidable and no longer is.
 #
 # src/engine builds as a shared library rather than an executable, because it is
 # meant to be driven by more than one front end. The front ends live beside it

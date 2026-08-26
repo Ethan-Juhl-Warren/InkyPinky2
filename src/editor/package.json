@@ -1,0 +1,23 @@
+{
+  "name": "inky-editor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reference Electron front end for the Inky engine, rendering it offscreen into a canvas.",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run build && electron ."
+  },
+  "dependencies": {
+    "koffi": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "electron": "^32.0.0",
+    "typescript": "^5.6.0"
+  },
+  "allowScripts": {
+    "electron@32.3.3": true,
+    "koffi@2.16.3": true
+  }
+}

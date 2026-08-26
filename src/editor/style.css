@@ -1,0 +1,117 @@
+/* Enough layout to show a docked viewport that resizes with its panel. */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #1e1e1e;
+  --panel: #252526;
+  --border: #3c3c3c;
+  --text: #cccccc;
+  --muted: #808080;
+  --accent: #0a84ff;
+}
+
+body {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.5 system-ui, -apple-system, Segoe UI, sans-serif;
+  overflow: hidden;
+  user-select: none;
+}
+
+.menubar {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  padding: 6px 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.menubar .brand {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.workspace {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 220px 1fr 280px;
+  gap: 1px;
+  background: var(--border);
+  min-height: 0;
+}
+
+.panel {
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.panel > header {
+  padding: 6px 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.tree {
+  list-style: none;
+  padding: 4px 0;
+}
+
+.tree li {
+  padding: 3px 12px;
+}
+
+.tree li.selected {
+  background: var(--accent);
+  color: #fff;
+}
+
+.field {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 12px;
+  border-bottom: 1px solid #2d2d2d;
+}
+
+.field label {
+  color: var(--muted);
+}
+
+/*
+ * scaleY(-1) because OpenGL numbers image rows from the bottom and a canvas
+ * numbers them from the top, so every frame arrives upside down. Flipping the
+ * element costs nothing; reversing megabytes of rows on the CPU would not.
+ */
+#viewport {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: block;
+  background: #141414;
+  transform: scaleY(-1);
+}
+
+.statusbar {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 12px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted);
+}

@@ -1,0 +1,13 @@
+# Installed dependencies. package-lock.json is committed, this is not.
+node_modules/
+
+# tsc output. Everything here is generated from src/ by `npm run build`, so it
+# is rebuilt rather than tracked. Note that index.html loads dist/renderer.js,
+# which means a fresh clone shows nothing until the build has run once.
+dist/
+
+# Packaging output, if electron-builder or electron-forge is ever added.
+out/
+release/
+
+npm-debug.log*
