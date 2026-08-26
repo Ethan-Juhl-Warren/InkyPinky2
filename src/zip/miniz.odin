@@ -1,5 +1,5 @@
 #+private
-package pak
+package zip
 
 import "core:c"
 

@@ -31,7 +31,8 @@ Code :: enum i32 {
 	PAK_ENTRY_COMPRESSED,
 	PAK_INVALID_HANDLE,
 	FILE_NOT_FOUND,
-	CANNOT_OPEN_FILE
+	CANNOT_OPEN_FILE,
+	INVALID_READ_TO_ASSET_PACK
 }
 
 /*
@@ -170,6 +171,11 @@ INFO := [Code]Info {
 		hint = "validate file integrity and ensure file is of correct format",
 		severity = .ERROR
 	},
+	.INVALID_READ_TO_ASSET_PACK = {
+		message = "Attempted to read from an asset pack in loose file mode",
+		hint = "ensure that correct pack mode is set in config. dont make hash based reads in non pack mode.",
+		severity = .ERROR
+	}
 }
 
 /*

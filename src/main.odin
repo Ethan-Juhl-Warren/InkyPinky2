@@ -2,6 +2,8 @@ package main
 
 import "core:strings"
 import "core:fmt"
+import "file"
+import "config"
 import rl "vendor:raylib"
 import b3 "vendor:box3d"
 import cmpt "component"
@@ -16,20 +18,14 @@ MOUSE_SENSITIVITY :: 0.003
 PITCH_LIMIT_DEGREES :: 89
 
 main :: proc() {
-	data, success := os.read_entire_file_from_path("f.txt", context.allocator)
-	if success != os.ERROR_NONE {
-		fmt.println("Error:")
-		return
-	}
-	defer delete(data, context.allocator)
-
-	file_contents := string(data)
-	for line in strings.split_lines_iterator(&file_contents) {
-		fmt.printfln(line)
-	}
+	config.load_config()
+	fmt.println(config.assets_packed())
+	file.load_asset_pack()
+	defer file.release_asset_pack()
 
 	rl.InitWindow(1280, 720, "Box3D + raylib")
 	defer rl.CloseWindow()
+	
 	rl.SetTargetFPS(60)
 	rl.DisableCursor()
 

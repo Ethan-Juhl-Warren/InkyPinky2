@@ -58,6 +58,7 @@ import "core:mem"
 import "core:os"
 import "core:strings"
 import "../error"
+import "../zip"
 
 /*
 An open pak.
@@ -153,7 +154,7 @@ pointer to this struct inside itself and the pool moves when it grows.
 */
 @(private)
 Archive :: struct {
-	zip: Zip_Archive,
+	archive: zip.Archive,
 	mapping: []byte,
 	path: string,
 	// One bit per entry, set once that entry has passed its CRC check. The
@@ -236,7 +237,7 @@ destroy :: proc() -> error.Code {
 
 	for archive in archives {
 		if archive.used {
-			mz_zip_reader_end(&archive.zip)
+			zip.close(&archive.archive)
 			_release(archive)
 		}
 		free(archive, allocator)
@@ -290,18 +291,16 @@ mount :: proc(path: string, case_sensitive := true) -> (p: Pak, code: error.Code
 	archive.path = strings.clone(path, allocator)
 	archive.case_sensitive = case_sensitive
 
-	mz_zip_zero_struct(&archive.zip)
-	if !mz_zip_reader_init_mem(&archive.zip, raw_data(mapping), c.size_t(len(mapping)), 0) {
-		code = _translate_error(mz_zip_get_last_error(&archive.zip))
+	if code = zip.open_from_memory(&archive.archive, mapping); code != .NONE {
 		_release(archive)
 		return INVALID, code
 	}
 
-	total := int(mz_zip_reader_get_num_files(&archive.zip))
+	total := zip.count(&archive.archive)
 	archive.verified = make([]u64, (total + 63) / 64, allocator)
 
 	if code = _build_hash_index(archive, total); code != .NONE {
-		mz_zip_reader_end(&archive.zip)
+		zip.close(&archive.archive)
 		_release(archive)
 		return INVALID, code
 	}
@@ -327,16 +326,17 @@ Returns:
 _build_hash_index :: proc(archive: ^Archive, total: int) -> error.Code {
 	archive.by_hash = make(map[Hash]int, total, allocator)
 
-	record: Zip_Archive_File_Stat
+	record: zip.File_Info
 	for i in 0 ..< total {
-		if !mz_zip_reader_file_stat(&archive.zip, c.uint(i), &record) {
-			return _translate_error(mz_zip_get_last_error(&archive.zip))
+		stat_code: error.Code
+		if record, stat_code = zip.stat(&archive.archive, i); stat_code != .NONE {
+			return stat_code
 		}
-		if bool(record.is_directory) {
+		if record.is_directory {
 			continue
 		}
 
-		name := string(cstring(raw_data(record.filename[:])))
+		name := zip.name_of(&record)
 		key := hash_path(name)
 		if _, taken := archive.by_hash[key]; taken {
 			return .PAK_CORRUPT
@@ -361,7 +361,7 @@ unmount :: proc(p: Pak) {
 	if archive == nil {
 		return
 	}
-	mz_zip_reader_end(&archive.zip)
+	zip.close(&archive.archive)
 	_release(archive)
 }
 
@@ -407,7 +407,7 @@ count :: proc(p: Pak) -> int {
 	if archive == nil {
 		return 0
 	}
-	return int(mz_zip_reader_get_num_files(&archive.zip))
+	return zip.count(&archive.archive)
 }
 
 /*
@@ -442,7 +442,7 @@ Returns:
 */
 size_of_entry_by_name :: proc(p: Pak, name: string) -> (size: u64, code: error.Code) {
 	record := _record(p, name) or_return
-	return record.uncomp_size, .NONE
+	return record.size, .NONE
 }
 
 /*
@@ -480,14 +480,11 @@ stat_index :: proc(p: Pak, index: int, allocator := context.temp_allocator) -> (
 	if archive == nil {
 		return {}, .PAK_INVALID_HANDLE
 	}
-	if index < 0 || index >= int(mz_zip_reader_get_num_files(&archive.zip)) {
+	if index < 0 || index >= zip.count(&archive.archive) {
 		return {}, .PAK_ENTRY_NOT_FOUND
 	}
 
-	record: Zip_Archive_File_Stat
-	if !mz_zip_reader_file_stat(&archive.zip, c.uint(index), &record) {
-		return {}, _translate_error(mz_zip_get_last_error(&archive.zip))
-	}
+	record := zip.stat(&archive.archive, index) or_return
 	return _to_entry(&record, "", allocator), .NONE
 }
 
@@ -510,15 +507,15 @@ entries :: proc(p: Pak, allocator := context.temp_allocator) -> (list: []Entry, 
 		return nil, .PAK_INVALID_HANDLE
 	}
 
-	total := int(mz_zip_reader_get_num_files(&archive.zip))
+	total := zip.count(&archive.archive)
 	list = make([]Entry, total, allocator)
 
-	record: Zip_Archive_File_Stat
+	record: zip.File_Info
 	for i in 0 ..< total {
-		if !mz_zip_reader_file_stat(&archive.zip, c.uint(i), &record) {
-			code = _translate_error(mz_zip_get_last_error(&archive.zip))
+		stat_code: error.Code
+		if record, stat_code = zip.stat(&archive.archive, i); stat_code != .NONE {
 			delete(list, allocator)
-			return nil, code
+			return nil, stat_code
 		}
 		list[i] = _to_entry(&record, "", allocator)
 	}
@@ -561,7 +558,7 @@ view_by_name :: proc(p: Pak, name: string, verify := true) -> (data: []byte, cod
 	if !found {
 		return nil, .PAK_ENTRY_NOT_FOUND
 	}
-	return view_index(p, int(index), verify)
+	return view_index(p, index, verify)
 }
 
 /*
@@ -582,14 +579,11 @@ view_index :: proc(p: Pak, index: int, verify := true) -> (data: []byte, code: e
 		return nil, .PAK_INVALID_HANDLE
 	}
 
-	record: Zip_Archive_File_Stat
-	if index < 0 || index >= int(mz_zip_reader_get_num_files(&archive.zip)) {
+	if index < 0 || index >= zip.count(&archive.archive) {
 		return nil, .PAK_ENTRY_NOT_FOUND
 	}
-	if !mz_zip_reader_file_stat(&archive.zip, c.uint(index), &record) {
-		return nil, _translate_error(mz_zip_get_last_error(&archive.zip))
-	}
-	if bool(record.is_directory) {
+	record := zip.stat(&archive.archive, index) or_return
+	if record.is_directory {
 		return nil, .PAK_ENTRY_NOT_FOUND
 	}
 
@@ -598,15 +592,15 @@ view_index :: proc(p: Pak, index: int, verify := true) -> (data: []byte, code: e
 	// perfectly viewable and would otherwise hand the caller raw ciphertext
 	// dressed up as the asset. AES entries are caught here too, and report being
 	// unsupported rather than merely compressed.
-	if bool(record.is_encrypted) || !bool(record.is_supported) {
+	if record.encrypted || !record.supported {
 		return nil, .PAK_UNSUPPORTED_FEATURE
 	}
 	if record.method != 0 {
 		return nil, .PAK_ENTRY_COMPRESSED
 	}
 
-	start := _data_offset(archive, &record) or_return
-	end := start + record.uncomp_size
+	start := zip.data_offset(archive.mapping, record.local_header_offset) or_return
+	end := start + record.size
 	if end > u64(len(archive.mapping)) {
 		return nil, .PAK_CORRUPT
 	}
@@ -646,7 +640,7 @@ read_by_name :: proc(p: Pak, name: string, allocator := context.allocator) -> (d
 	if !found {
 		return nil, .PAK_ENTRY_NOT_FOUND
 	}
-	return read_index(p, int(index), allocator)
+	return read_index(p, index, allocator)
 }
 
 /*
@@ -669,24 +663,20 @@ read_index :: proc(p: Pak, index: int, allocator := context.allocator) -> (data:
 	if archive == nil {
 		return nil, .PAK_INVALID_HANDLE
 	}
-	if index < 0 || index >= int(mz_zip_reader_get_num_files(&archive.zip)) {
+	if index < 0 || index >= zip.count(&archive.archive) {
 		return nil, .PAK_ENTRY_NOT_FOUND
 	}
 
-	record: Zip_Archive_File_Stat
-	if !mz_zip_reader_file_stat(&archive.zip, c.uint(index), &record) {
-		return nil, _translate_error(mz_zip_get_last_error(&archive.zip))
-	}
-	if bool(record.is_directory) {
+	record := zip.stat(&archive.archive, index) or_return
+	if record.is_directory {
 		return nil, .PAK_ENTRY_NOT_FOUND
 	}
-	if bool(record.is_encrypted) || !bool(record.is_supported) {
+	if record.encrypted || !record.supported {
 		return nil, .PAK_UNSUPPORTED_FEATURE
 	}
 
-	data = make([]byte, int(record.uncomp_size), allocator)
-	if !mz_zip_reader_extract_to_mem(&archive.zip, c.uint(index), raw_data(data), c.size_t(len(data)), 0) {
-		code = _translate_error(mz_zip_get_last_error(&archive.zip))
+	data = make([]byte, int(record.size), allocator)
+	if code = zip.extract(&archive.archive, index, data); code != .NONE {
 		delete(data, allocator)
 		return nil, code
 	}
@@ -868,7 +858,7 @@ Returns:
 - code: `.NONE`, or why it could not be looked up
 */
 @(private)
-_record :: proc(p: Pak, name: string) -> (record: Zip_Archive_File_Stat, code: error.Code) {
+_record :: proc(p: Pak, name: string) -> (record: zip.File_Info, code: error.Code) {
 	archive := _archive(p)
 	if archive == nil {
 		return {}, .PAK_INVALID_HANDLE
@@ -878,55 +868,7 @@ _record :: proc(p: Pak, name: string) -> (record: Zip_Archive_File_Stat, code: e
 	if !found {
 		return {}, .PAK_ENTRY_NOT_FOUND
 	}
-	if !mz_zip_reader_file_stat(&archive.zip, c.uint(index), &record) {
-		return {}, _translate_error(mz_zip_get_last_error(&archive.zip))
-	}
-	return record, .NONE
-}
-
-/*
-Finds where an entry's bytes start in the mapping.
-
-The central directory only records where the local header is, and that header
-carries its own name and extra field whose lengths differ from the ones in the
-directory, so the payload offset can only be worked out from the header itself.
-
-Inputs:
-- archive: The archive to look in
-- record: The entry's central directory record
-
-Returns:
-- offset: The byte offset of the entry's data within the mapping
-- code: `.NONE`, or `.PAK_CORRUPT` when the header is not where it should be
-*/
-@(private)
-_data_offset :: proc(archive: ^Archive, record: ^Zip_Archive_File_Stat) -> (offset: u64, code: error.Code) {
-	header := record.local_header_ofs
-	if header + _LOCAL_HEADER_SIZE > u64(len(archive.mapping)) {
-		return 0, .PAK_CORRUPT
-	}
-
-	local := archive.mapping[header:]
-	if _u32(local, 0) != _SIG_LOCAL_FILE_HEADER {
-		return 0, .PAK_CORRUPT
-	}
-
-	name_len := u64(_u16(local, 26))
-	extra_len := u64(_u16(local, 28))
-	return header + _LOCAL_HEADER_SIZE + name_len + extra_len, .NONE
-}
-
-@(private) _SIG_LOCAL_FILE_HEADER :: u32(0x04034b50)
-@(private) _LOCAL_HEADER_SIZE :: u64(30)
-
-@(private)
-_u16 :: proc(b: []byte, offset: int) -> u16 {
-	return u16(b[offset]) | u16(b[offset + 1]) << 8
-}
-
-@(private)
-_u32 :: proc(b: []byte, offset: int) -> u32 {
-	return u32(b[offset]) | u32(b[offset + 1]) << 8 | u32(b[offset + 2]) << 16 | u32(b[offset + 3]) << 24
+	return zip.stat(&archive.archive, index)
 }
 
 /*
@@ -943,14 +885,9 @@ Returns:
 - found: Whether the archive holds it
 */
 @(private)
-_locate :: proc(archive: ^Archive, name: string) -> (index: u32, found: bool) {
-	flags := MZ_ZIP_FLAG_CASE_SENSITIVE if archive.case_sensitive else c.uint(0)
+_locate :: proc(archive: ^Archive, name: string) -> (index: int, found: bool) {
 	key := strings.clone_to_cstring(name, context.temp_allocator)
-
-	// Written out rather than returned inline, so `index` is not read while the
-	// call that fills it in is still an argument being evaluated.
-	found = bool(mz_zip_reader_locate_file_v2(&archive.zip, key, nil, flags, &index))
-	return index, found
+	return zip.locate(&archive.archive, key, archive.case_sensitive)
 }
 
 /*
@@ -965,19 +902,19 @@ Returns:
 - The record as an `Entry`
 */
 @(private)
-_to_entry :: proc(record: ^Zip_Archive_File_Stat, name: string, allocator: Maybe(mem.Allocator)) -> Entry {
+_to_entry :: proc(record: ^zip.File_Info, name: string, allocator: Maybe(mem.Allocator)) -> Entry {
 	entry := Entry {
 		name = name,
-		index = int(record.file_index),
-		size = record.uncomp_size,
-		compressed_size = record.comp_size,
+		index = record.index,
+		size = record.size,
+		compressed_size = record.compressed_size,
 		crc32 = record.crc32,
 		stored = record.method == 0,
-		encrypted = bool(record.is_encrypted),
-		is_directory = bool(record.is_directory),
+		encrypted = record.encrypted,
+		is_directory = record.is_directory,
 	}
 	if allocator != nil {
-		entry.name = strings.clone_from_cstring(cstring(raw_data(record.filename[:])), allocator.?)
+		entry.name = strings.clone_from_cstring(cstring(raw_data(record._name[:])), allocator.?)
 	}
 	return entry
 }
@@ -1205,44 +1142,4 @@ read_at_by_hash :: proc(p: Pak, key: Hash, buffer: []byte, offset: int) -> (n: i
 		return 0, .NONE
 	}
 	return copy(buffer, whole[offset:]), .NONE
-}
-
-/*
-Folds miniz's error list down onto the engine's.
-
-miniz distinguishes far more failures than the engine acts on, so several map
-onto one code.
-
-Inputs:
-- err: The code miniz reported
-
-Returns:
-- The matching engine code
-*/
-@(private)
-_translate_error :: proc(err: Zip_Error) -> error.Code {
-	#partial switch err {
-	case .NO_ERROR:
-		return .NONE
-
-	case .FILE_OPEN_FAILED, .FILE_STAT_FAILED, .FILE_SEEK_FAILED:
-		return .PAK_OPEN_FAILED
-
-	case .FILE_READ_FAILED, .FILE_CLOSE_FAILED, .ALLOC_FAILED:
-		return .PAK_READ_FAILED
-
-	case .NOT_AN_ARCHIVE, .FAILED_FINDING_CENTRAL_DIR:
-		return .PAK_NOT_AN_ARCHIVE
-
-	case .FILE_NOT_FOUND:
-		return .PAK_ENTRY_NOT_FOUND
-
-	case .UNSUPPORTED_METHOD, .UNSUPPORTED_ENCRYPTION, .UNSUPPORTED_FEATURE,
-	     .UNSUPPORTED_MULTIDISK, .UNSUPPORTED_CDIR_SIZE:
-		return .PAK_UNSUPPORTED_FEATURE
-	}
-
-	// Everything left is the archive not being what its central directory
-	// claims: corrupt headers, a failed inflate, a CRC mismatch, a short read.
-	return .PAK_CORRUPT
 }

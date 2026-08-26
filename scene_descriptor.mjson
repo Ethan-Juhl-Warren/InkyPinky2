@@ -1,0 +1,70 @@
+// City Outskirts — the scene the vertical slice opens on.
+// Comments are allowed, keys are unquoted, commas are optional.
+
+name = "City Outskirts"
+
+config = {
+    gravity = [0, -9.8, 0]
+    ambient = 0.25
+}
+
+entities = [
+    {
+        name = "main camera"
+        transform = {
+            position = [0, 10, 20]
+            rotation = [0, 0, 0, 1]      // identity quaternion, xyzw
+            scale    = [1, 1, 1]
+        }
+        camera = {
+            fovy       = 45.0
+            projection = "PERSPECTIVE"
+            main       = true
+        }
+    }
+
+    {
+        name = "ground"
+        transform = {
+            position = [0, -0.5, 0]
+            rotation = [0, 0, 0, 1]
+            scale    = [1, 1, 1]
+        }
+        model = {
+            mesh     = "models/ground.obj"
+            material = "materials/dirt.mat"
+        }
+        rigidbody = {
+            kind        = "STATIC"
+            half_extent = [25, 0.5, 25]
+        }
+    }
+
+    {
+        name = "crate"
+        transform = {
+            position = [0, 8, 0]
+            rotation = [0, 0, 0, 1]
+            scale    = [1, 1, 1]
+        }
+        model = {
+            mesh     = "models/box.obj"
+            material = "materials/crate.mat"
+        }
+        rigidbody = {
+            kind        = "DYNAMIC"
+            density     = 1.0
+            half_extent = [0.5, 0.5, 0.5]
+        }
+    }
+
+    {
+        // no components beyond a transform, so nothing else is written
+        name = "spawn point"
+        transform = {
+            position = [2, 0, -3]
+            rotation = [0, 0, 0, 1]
+            scale    = [1, 1, 1]
+        }
+    }
+]
