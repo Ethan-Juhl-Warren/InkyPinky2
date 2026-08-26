@@ -1,8 +1,13 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "CommonJS",
-    "moduleResolution": "node",
+
+    // node16 rather than commonjs plus the old node resolver, which
+    // TypeScript now calls node10 and has deprecated. Because package.json has
+    // no "type" field, node16 still treats these as CommonJS and emits
+    // require(), which is what index.html loads dist/renderer.js with.
+    "module": "node16",
+    "moduleResolution": "node16",
     "lib": ["ES2022", "DOM"],
     "rootDir": "src",
     "outDir": "dist",
