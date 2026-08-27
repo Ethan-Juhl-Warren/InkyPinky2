@@ -22,6 +22,14 @@
 
 import path from 'node:path';
 import { load, Engine, Surface } from './engine';
+import { mountHierarchy } from './hierarchy';
+import { mountInspector } from './inspector';
+
+// TODO: these panels are stubs for now (no backend to read/write real scene
+// data yet). Wired up here so the containers exist and this is the one place
+// that needs to change once they're implemented for real.
+mountHierarchy({ container: document.getElementById('hierarchy-body')! });
+mountInspector({ container: document.getElementById('inspector-body')! });
 
 const canvas = document.getElementById('viewport') as HTMLCanvasElement;
 const context = canvas.getContext('2d')!;
