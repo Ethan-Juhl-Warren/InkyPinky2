@@ -65,6 +65,23 @@ create_rigidbody :: proc(entity_id: entity.Id, bodydef: b3.BodyDef) {
 	error.must(err)
 }
 
+// Steph Code - Ethan please dont wys this code too hard, im just a boy
+// adds shape of box to shapes list thing, TODO prob add similar functions for other shape variants or make it a generic
+// I think Ethan likes it as separate functions
+add_box_shape :: proc(entity_id: entity.Id, half_extents: [3]f32, density: f32, is_sensor: bool = false) {
+	assert(rigidbody_manager.initialized, "add_box_shape: rigidbody manager not initialized, call init_rigidbody_manager first")
+	rigidbody, found := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
+	error.must(found)
+
+	shape: CollisionShape = {
+		geometry = BoxGeometry{half_extents = half_extents},,
+		density = density,
+		is_sensor = is_sensor,
+	}
+
+	append(&rigidbody.shapes, shape)
+}
+
 destroy_rigidbody :: proc(entity_id: entity.Id) {
 	assert(rigidbody_manager.initialized, "destroy_rigidbody: rigidbody manager not initialized, call init_rigidbody_manager first")
 	rigidbody, found := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
@@ -140,4 +157,32 @@ _unrealize_rigidbody :: proc(rigidbody: ^RigidBody) {
 _free_rigidbody :: proc(rigidbody: ^RigidBody) {
 	_unrealize_rigidbody(rigidbody)
 	delete(rigidbody.shapes)
+}
+
+rigidbody_from_mjson :: proc (entity_id: entity.Id, value: json.Value) -> error.Code {
+	obj := value.(json.Object) or_return
+
+	kind := obj["kind"].(json.String) or_return
+
+	bodydef := b3.DefaultBodyDef()
+	switch kind {
+		case "STATIC":
+			bodydef.type = .staticBody
+		case "DYNAMIC":
+			bodydef.type = .dynamicBody
+		case:
+			return .PARSE_ERROR
+	}
+
+	create_rigidbody(entity.Id, bodydef)
+
+	half_extent := _vec3_from_mjson(obj["half_extent"]) or_return
+
+	density: f32 = 0
+	if density_val, has_density := obj["density"]; has_density {
+		density = f32(density_val.(json.Float) or_return)
+	}
+
+	add_box_shape(entity_id, half_extent, density)
+	return .NONE
 }

@@ -72,7 +72,7 @@ add_entity :: proc(name: string, scene_id: Id) -> entity.Id {
 	name := strings.clone(name)
 
 	scene_manager.next_entity_id += 1
-	id := entity.make_id(cast(u32)scene_manager.scene_id, cast(u32)scene_manager.next_entity_id)
+	id := entity.make_id(cast(u32)scene_id, cast(u32)scene_manager.next_entity_id)
 	err := registry.create_item(&scene_manager.entity_registry, id, name)
 	error.must(err)
 	scene_manager.entity_names[name] = id

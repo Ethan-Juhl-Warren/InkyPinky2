@@ -280,3 +280,31 @@ matrix and the renderer decides what to do with them.
 camera_get_view_matrix and camera_get_projection_matrix above are the
 replacement, and they already existed.
 */
+
+
+
+camera_from_mjson :: proc(entity_id: entity.Id, value: json.Value) -> error.Code {
+	obj := value.(json.Object) or_return
+
+	fovy_val := obj["fovy"].(json.Float) or_return
+	proj_str := obj["projection"].(json.String) or_return
+
+	projection: CameraProjection
+	switch proj_str {
+	case "PERSPECTIVE":
+		projection = .PERSPECTIVE
+	case "ORTHOGRAPHIC":
+		projection = .ORTHOGRAPHIC
+	case:
+		return .PARSE_ERROR
+	}
+
+	camera_create(entity_id, f32(fovy_val), projection)
+
+	if main_val, has_main := obj["main"]; has_main {
+		if is_main, ok := main_val.(json.Boolean); ok && bool(is_main) {
+			return set_main_camera(entity_id)
+		}
+	}
+	return .NONE
+}

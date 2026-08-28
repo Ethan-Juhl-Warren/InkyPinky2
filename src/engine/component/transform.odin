@@ -764,3 +764,16 @@ _transform_get_view_matrix :: proc(entity_id: entity.Id) -> matrix[4,4]f32 {
 	forward :=  linalg.quaternion_mul_vector3(transform.rotation, GLOBAL_FORWARD)
 	return linalg.matrix4_look_at(transform.position, transform.position + forward, up)
 }
+
+transform_from_mjson :: proc(entity_id: entity.Id, value: json.Value) -> error.Code {
+    obj, ok := value.(json.Object)
+	if !ok {
+		return .PARSE_ERROR
+	}
+	position := _vec3_from_mjson(obj["position"]) or_return
+	scale := _vec3_from_mjson(obj["scale"]) or_return
+	rotation := _quat_from_mjson(obj["rotation"]) or_return
+
+	transform_create(entity_id, position, scale, rotation)
+	return .NONE
+}

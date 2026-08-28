@@ -27,7 +27,3 @@ destroy_component_managers :: proc() {
         destroy_proc()
     }
 }
-
-transform_from_mjson :: proc() {
-    
-}
