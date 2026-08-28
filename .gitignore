@@ -13,3 +13,6 @@ osl.json
 *.obj
 *.o
 *.a
+
+!vendor/lua/lua54.lib
+!vendor/lua/liblua54.a

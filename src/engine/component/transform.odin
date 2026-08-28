@@ -32,7 +32,7 @@ a corresponding call to destroy_transform_manager must be called to cleanup
 Note:
 
 This individually initializes the transform manager
-See also init_component_managers, which initializes all component mangers
+See also init_component_managers, which initializes all component managers
 */
 init_transform_manager :: proc() {
 	if transform_manager.initialized {

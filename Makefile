@@ -90,7 +90,7 @@ windows: windows-engine windows-runtime
 
 windows-engine: vendor/miniz/miniz.lib
 	if not exist build mkdir build
-	odin build src/engine -build-mode:dll -out:build/engine.dll
+	odin build src/engine -build-mode:dll -extra-linker-flags:"vendor/lua/lua54.lib" -out:build/engine.dll
 
 windows-runtime:
 	if not exist build mkdir build
@@ -106,7 +106,7 @@ linux: linux-engine linux-runtime
 
 linux-engine: vendor/miniz/libminiz.a
 	mkdir -p build
-	odin build src/engine -build-mode:dll -out:build/libengine.so
+	odin build src/engine -build-mode:dll -extra-linker-flags:"vendor/lua/liblua54.a" -out:build/libengine.so
 
 # The whole -extra-linker-flags argument is in single quotes so that $ORIGIN
 # reaches the linker as those seven literal characters. It is not a variable to
