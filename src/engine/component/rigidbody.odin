@@ -1,8 +1,10 @@
 package component
 import "../registry"
 import "../error"
+import "../mjson"
 import b3 "vendor:box3d"
 import "../entity"
+import "core:encoding/json"
 
 @(private) rigidbody_manager: RigidBodyManager
 
@@ -74,7 +76,7 @@ add_box_shape :: proc(entity_id: entity.Id, half_extents: [3]f32, density: f32, 
 	error.must(found)
 
 	shape: CollisionShape = {
-		geometry = BoxGeometry{half_extents = half_extents},,
+		geometry = BoxGeometry{half_extents = half_extents},
 		density = density,
 		is_sensor = is_sensor,
 	}
@@ -160,9 +162,8 @@ _free_rigidbody :: proc(rigidbody: ^RigidBody) {
 }
 
 rigidbody_from_mjson :: proc (entity_id: entity.Id, value: json.Value) -> error.Code {
-	obj := value.(json.Object) or_return
-
-	kind := obj["kind"].(json.String) or_return
+	obj := mjson.as_object(value) or_return
+	kind := mjson.as_string(obj["kind"]) or_return
 
 	bodydef := b3.DefaultBodyDef()
 	switch kind {
@@ -174,13 +175,15 @@ rigidbody_from_mjson :: proc (entity_id: entity.Id, value: json.Value) -> error.
 			return .PARSE_ERROR
 	}
 
-	create_rigidbody(entity.Id, bodydef)
+	create_rigidbody(entity_id, bodydef)
 
-	half_extent := _vec3_from_mjson(obj["half_extent"]) or_return
+	half_extent := mjson.vec3(obj["half_extent"]) or_return
 
 	density: f32 = 0
-	if density_val, has_density := obj["density"]; has_density {
-		density = f32(density_val.(json.Float) or_return)
+	density_val, has_density := obj["density"]
+	if has_density {
+		density_f := mjson.as_float(density_val) or_return
+		density = f32(density_f)
 	}
 
 	add_box_shape(entity_id, half_extent, density)

@@ -2,7 +2,9 @@ package component
 import "../entity"
 import "../registry"
 import "../error"
+import "../mjson"
 import "core:math/linalg"
+import "core:encoding/json"
 
 @(private) transform_manager: TransformManager
 
@@ -770,9 +772,9 @@ transform_from_mjson :: proc(entity_id: entity.Id, value: json.Value) -> error.C
 	if !ok {
 		return .PARSE_ERROR
 	}
-	position := _vec3_from_mjson(obj["position"]) or_return
-	scale := _vec3_from_mjson(obj["scale"]) or_return
-	rotation := _quat_from_mjson(obj["rotation"]) or_return
+	position := mjson.vec3(obj["position"]) or_return
+	scale := mjson.vec3(obj["scale"]) or_return
+	rotation := mjson.quat(obj["rotation"]) or_return
 
 	transform_create(entity_id, position, scale, rotation)
 	return .NONE

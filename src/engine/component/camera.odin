@@ -3,7 +3,9 @@ import "../entity"
 import "core:math/linalg"
 import "../registry"
 import "../error"
+import "../mjson"
 import "core:math"
+import "core:encoding/json"
 
 @(private) camera_manager: CameraManager
 
@@ -284,10 +286,9 @@ replacement, and they already existed.
 
 
 camera_from_mjson :: proc(entity_id: entity.Id, value: json.Value) -> error.Code {
-	obj := value.(json.Object) or_return
-
-	fovy_val := obj["fovy"].(json.Float) or_return
-	proj_str := obj["projection"].(json.String) or_return
+	obj := mjson.as_object(value) or_return
+	fovy_val := mjson.as_float(obj["fovy"]) or_return
+	proj_str := mjson.as_string(obj["projection"]) or_return
 
 	projection: CameraProjection
 	switch proj_str {
