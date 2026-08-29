@@ -1,11 +1,11 @@
 // The right panel: shows and edits the selected entity's values.
 
+import { getSelected, rename } from './sceneStub';
+
 export interface InspectorOptions {
   container: HTMLElement;
 }
 
-// TODO: get the selected entity from sceneStub.getSelected().
-// TODO: show its name at the top (editable text field).
 // TODO: show a "Transform" section with position / rotation / scale rows,
 //       using createAxisRow for each (rotation is a quaternion, so x/y/z/w).
 // TODO: make the Transform section collapsible (click header to expand/collapse).
@@ -18,5 +18,17 @@ export interface InspectorOptions {
 //       entity doesn't have yet, calling sceneStub.addComponent(id, type).
 // TODO: re-draw whenever sceneStub.subscribe() fires or the selection changes.
 export function mountInspector(options: InspectorOptions): void {
-  // stub
+	const selected = getSelected();
+	if (!selected) {
+		options.container.innerHTML = '';
+		return;
+	}
+	const selectedName = document.createElement("input");
+	selectedName.type = "text";
+	selectedName.value = selected.name;
+	selectedName.addEventListener('input', () => {
+		rename(selected.id, selectedName.value);
+	});
+	options.container.appendChild(selectedName);
+
 }

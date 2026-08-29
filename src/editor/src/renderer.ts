@@ -177,12 +177,21 @@ let actions = 0;
 let mouseDx = 0;
 let mouseDy = 0;
 
+function isTypingTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+  );
+}
+
 window.addEventListener('keydown', (event) => {
+  if (isTypingTarget(event.target)) return;
   const bit = BINDINGS[event.code];
   if (bit !== undefined) actions |= bit;
 });
 
 window.addEventListener('keyup', (event) => {
+  if (isTypingTarget(event.target)) return;
   const bit = BINDINGS[event.code];
   if (bit !== undefined) actions &= ~bit;
 });
