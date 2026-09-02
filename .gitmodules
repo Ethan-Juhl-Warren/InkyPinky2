@@ -1,3 +1,0 @@
-[submodule "vendor/jobs"]
-	path = vendor/jobs
-	url = https://github.com/jakubtomsu/jobs.git
