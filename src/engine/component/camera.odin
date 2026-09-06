@@ -9,13 +9,42 @@ import "core:encoding/json"
 
 @(private) camera_manager: CameraManager
 
-CameraProjection :: enum {
-    PERSPECTIVE,
-    ORTHOGRAPHIC
+/*
+Perspective projection. Objects shrink with distance.
+
+- fovy: the vertical field of view, in DEGREES
+*/
+Perspective :: struct {
+    fovy: f32,
+}
+
+/*
+Orthographic projection. Objects keep their size regardless of distance.
+
+- height: the vertical size of the view volume, in WORLD UNITS
+
+Note:
+
+This is not a field of view, the two modes take different quantities and that is
+why they are separate types rather than one struct with a mode flag and a number
+that means degrees or metres depending on the flag.
+*/
+Orthographic :: struct {
+    height: f32,
+}
+
+/*
+Which projection a Camera uses, and the parameters that projection needs.
+
+A nil CameraProjection is a camera that has not been given a projection yet, and
+any procedure that needs one will report .INVALID_CAMERA_PROJECTION.
+*/
+CameraProjection :: union {
+    Perspective,
+    Orthographic,
 }
 
 Camera :: struct {
-    fovy: f32,
     projection: CameraProjection,
 }
 
@@ -65,28 +94,60 @@ destroy_camera_manager :: proc() {
 Creates a Camera component for the entity specified by entity_id
 
 Inputs:
-- entity_id: entity.Id The Id of the entity to create a Transform for
-- fovy: f32 The vertical field of view of the camera
-- projection: CameraProjection The projection mode of the camera
+- entity_id: entity.Id The Id of the entity to create a Camera for
+- projection: CameraProjection The projection the camera uses, either a
+  Perspective or an Orthographic
+
+Note:
+
+If the supplied entity_id is invalid the system will panic
+
+See also camera_create_perspective and camera_create_orthographic, which name
+the mode in the call rather than in the argument
+
+Example:
+    camera_create(id, Perspective{fovy = 45})
+    camera_create(id, Orthographic{height = 10})
+*/
+camera_create :: proc(entity_id: entity.Id, projection: CameraProjection) {
+    assert(camera_manager.initialized, "camera_create: camera manager not initialized, call init_camera_manager first")
+
+    camera: Camera = {
+        projection = projection
+    }
+
+    err := registry.create_item(&camera_manager.camera_registry, entity_id, camera)
+    error.must(err)
+}
+
+/*
+Creates a Camera component with a perspective projection
+
+Inputs:
+- entity_id: entity.Id The Id of the entity to create a Camera for
+- fovy: f32 The vertical field of view, in degrees
 
 Note:
 
 If the supplied entity_id is invalid the system will panic
 */
-camera_create :: proc(entity_id: entity.Id, fovy: f32, projection: CameraProjection) {
-    assert(camera_manager.initialized, "camera_create: camera manager not initialized, call init_camera_manager first")
-    valid := transform_exists(entity_id)
-    if !valid {
-        error.must(.ADDING_CAMERA_TO_ENTITY_WITH_NO_TRANSFORM)
-    }
+camera_create_perspective :: proc(entity_id: entity.Id, fovy: f32) {
+    camera_create(entity_id, Perspective{fovy = fovy})
+}
 
-    camera: Camera = {
-        fovy,
-        projection
-    }
+/*
+Creates a Camera component with an orthographic projection
 
-    err := registry.create_item(&camera_manager.camera_registry, entity_id, camera)
-    error.must(err)
+Inputs:
+- entity_id: entity.Id The Id of the entity to create a Camera for
+- height: f32 The vertical size of the view volume, in world units
+
+Note:
+
+If the supplied entity_id is invalid the system will panic
+*/
+camera_create_orthographic :: proc(entity_id: entity.Id, height: f32) {
+    camera_create(entity_id, Orthographic{height = height})
 }
 
 /*
@@ -107,37 +168,23 @@ camera_destroy :: proc(entity_id: entity.Id) {
 }
 
 /*
-Returns the vertical field of view of the Camera component specified by the entity_id
+Returns the projection of the Camera component specified by the entity_id
 
 Inputs:
-- entity_id: entity.Id The id of the entity whose fovy will be returned
+- entity_id: entity.Id The id of the entity whose projection will be returned
 
 Outputs:
-- f32 The fovy of the Camera
+- CameraProjection The projection of the Camera, a Perspective or an Orthographic
 
 Note:
 
 If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
-*/
-camera_get_fovy :: proc(entity_id: entity.Id) -> f32 {
-    assert(camera_manager.initialized, "camera_get_fovy: camera manager not initialized, call init_camera_manager first")
-    camera, err := registry.get_item(&camera_manager.camera_registry, entity_id)
-    error.must(err)
-    return camera.fovy
-}
 
-/*
-Returns the projection mode of the Camera component specified by the entity_id
-
-Inputs:
-- entity_id: entity.Id The id of the entity whose Projection will be returned
-
-Outputs:
-- CameraProjection The Projection mode of the Camera
-
-Note:
-
-If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
+Example:
+    switch p in camera_get_projection(id) {
+    case Perspective:  // p.fovy is degrees
+    case Orthographic: // p.height is world units
+    }
 */
 camera_get_projection :: proc(entity_id: entity.Id) -> CameraProjection {
     assert(camera_manager.initialized, "camera_get_projection: camera manager not initialized, call init_camera_manager first")
@@ -148,27 +195,11 @@ camera_get_projection :: proc(entity_id: entity.Id) -> CameraProjection {
 }
 
 /*
-Sets the vertical field of view f32 of the entity specified by entity_id's corresponding Camera component
+Sets the projection of the entity specified by entity_id's corresponding Camera component
 
 Inputs:
-- entity_id: entity.Id The id of the entity whose fovy will be set
-
-Note:
-
-If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
-*/
-camera_set_fovy :: proc(entity_id: entity.Id, fovy: f32) {
-    assert(camera_manager.initialized, "camera_set_fovy: camera manager not initialized, call init_camera_manager first")
-    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
-    error.must(found)
-    camera.fovy = fovy
-}
-
-/*
-Sets the Projection mode CameraProjection of the entity specified by entity_id's corresponding Camera component
-
-Inputs:
-- entity_id: entity.Id The id of the entity whose projection mode will be set
+- entity_id: entity.Id The id of the entity whose projection will be set
+- projection: CameraProjection The projection to switch to, a Perspective or an Orthographic
 
 Note:
 
@@ -179,6 +210,144 @@ camera_set_projection :: proc(entity_id: entity.Id, projection: CameraProjection
     camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
     error.must(found)
     camera.projection = projection
+}
+
+/*
+Reports whether the Camera component specified by entity_id is perspective
+
+Inputs:
+- entity_id: entity.Id The id of the entity whose Camera will be checked
+
+Outputs:
+- bool true when the camera projects with a Perspective
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
+*/
+camera_is_perspective :: proc(entity_id: entity.Id) -> bool {
+    _, ok := camera_get_projection(entity_id).(Perspective)
+    return ok
+}
+
+/*
+Reports whether the Camera component specified by entity_id is orthographic
+
+Inputs:
+- entity_id: entity.Id The id of the entity whose Camera will be checked
+
+Outputs:
+- bool true when the camera projects with an Orthographic
+
+Note:
+
+If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
+*/
+camera_is_orthographic :: proc(entity_id: entity.Id) -> bool {
+    _, ok := camera_get_projection(entity_id).(Orthographic)
+    return ok
+}
+
+/*
+Returns the vertical field of view, in degrees, of the perspective Camera component specified by entity_id
+
+Inputs:
+- entity_id: entity.Id The id of the entity whose fovy will be returned
+
+Outputs:
+- f32 The fovy of the Camera, in degrees
+
+Note:
+
+If the supplied entity_id is invalid, has no corresponding Camera component, or
+that camera is not a Perspective the system will panic. Guard with
+camera_is_perspective, or read the projection with camera_get_projection when
+either mode is possible
+*/
+camera_get_fovy :: proc(entity_id: entity.Id) -> f32 {
+    assert(camera_manager.initialized, "camera_get_fovy: camera manager not initialized, call init_camera_manager first")
+    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
+    error.must(found)
+    perspective, ok := camera.projection.(Perspective)
+    if !ok {
+        error.must(.INVALID_CAMERA_PROJECTION)
+    }
+    return perspective.fovy
+}
+
+/*
+Sets the vertical field of view, in degrees, of the perspective Camera component specified by entity_id
+
+Inputs:
+- entity_id: entity.Id The id of the entity whose fovy will be set
+- fovy: f32 The vertical field of view, in degrees
+
+Note:
+
+If the supplied entity_id is invalid, has no corresponding Camera component, or
+that camera is not a Perspective the system will panic. To change a camera from
+orthographic to perspective, assign a whole projection with camera_set_projection
+*/
+camera_set_fovy :: proc(entity_id: entity.Id, fovy: f32) {
+    assert(camera_manager.initialized, "camera_set_fovy: camera manager not initialized, call init_camera_manager first")
+    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
+    error.must(found)
+    if _, ok := camera.projection.(Perspective); !ok {
+        error.must(.INVALID_CAMERA_PROJECTION)
+    }
+    camera.projection = Perspective{fovy = fovy}
+}
+
+/*
+Returns the vertical size of the view volume, in world units, of the orthographic
+Camera component specified by entity_id
+
+Inputs:
+- entity_id: entity.Id The id of the entity whose height will be returned
+
+Outputs:
+- f32 The height of the view volume, in world units
+
+Note:
+
+If the supplied entity_id is invalid, has no corresponding Camera component, or
+that camera is not an Orthographic the system will panic. Guard with
+camera_is_orthographic, or read the projection with camera_get_projection when
+either mode is possible
+*/
+camera_get_orthographic_height :: proc(entity_id: entity.Id) -> f32 {
+    assert(camera_manager.initialized, "camera_get_orthographic_height: camera manager not initialized, call init_camera_manager first")
+    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
+    error.must(found)
+    orthographic, ok := camera.projection.(Orthographic)
+    if !ok {
+        error.must(.INVALID_CAMERA_PROJECTION)
+    }
+    return orthographic.height
+}
+
+/*
+Sets the vertical size of the view volume, in world units, of the orthographic
+Camera component specified by entity_id
+
+Inputs:
+- entity_id: entity.Id The id of the entity whose height will be set
+- height: f32 The vertical size of the view volume, in world units
+
+Note:
+
+If the supplied entity_id is invalid, has no corresponding Camera component, or
+that camera is not an Orthographic the system will panic. To change a camera from
+perspective to orthographic, assign a whole projection with camera_set_projection
+*/
+camera_set_orthographic_height :: proc(entity_id: entity.Id, height: f32) {
+    assert(camera_manager.initialized, "camera_set_orthographic_height: camera manager not initialized, call init_camera_manager first")
+    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
+    error.must(found)
+    if _, ok := camera.projection.(Orthographic); !ok {
+        error.must(.INVALID_CAMERA_PROJECTION)
+    }
+    camera.projection = Orthographic{height = height}
 }
 
 /*
@@ -256,20 +425,24 @@ Outputs:
 Note
 
 If the supplied entity_id is invalid, or has no corresponding Camera component the system will panic
+
+A Perspective builds a frustum from its fovy, converted from degrees to radians
+here. An Orthographic builds a box from its height, which is already in world
+units and needs no conversion. Both take their horizontal extent from aspect
 */
 camera_get_projection_matrix :: proc(entity_id: entity.Id, aspect, near, far: f32) -> matrix[4,4]f32 {
     assert(camera_manager.initialized, "camera_get_projection_matrix: camera manager not initialized, call init_camera_manager first")
     camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
     error.must(found)
-    switch camera.projection {
-    case .PERSPECTIVE:
-        return linalg.matrix4_perspective(math.to_radians_f32(camera.fovy), aspect, near, far)
-    case .ORTHOGRAPHIC:
-        top := camera.fovy * 0.5
+    switch projection in camera.projection {
+    case Perspective:
+        return linalg.matrix4_perspective(math.to_radians_f32(projection.fovy), aspect, near, far)
+    case Orthographic:
+        top := projection.height * 0.5
         right := top * aspect
         return linalg.matrix_ortho3d(-right, right, -top, top, near, far)
     }
-    error.must(.INVALID_CAMERA_PROJECTION)
+    error.must(.INVALID_CAMERA_PROJECTION) // the union is nil, the camera was never given a projection
     return {} // Unreachable kkk must add error.throw at some stage
 }
 
@@ -282,25 +455,33 @@ matrix and the renderer decides what to do with them.
 camera_get_view_matrix and camera_get_projection_matrix above are the
 replacement, and they already existed.
 */
+/*
+Reads a camera block. The projection key picks the mode, and the mode decides
+which other key is required:
 
+	camera = { projection = "PERSPECTIVE"  fovy = 45.0   main = true }
+	camera = { projection = "ORTHOGRAPHIC" height = 10.0 }
 
-
+A perspective block with a height, or an orthographic block with a fovy, is a
+parse error rather than a silently ignored key.
+*/
 camera_from_mjson :: proc(entity_id: entity.Id, value: json.Value) -> error.Code {
 	obj := mjson.as_object(value) or_return
-	fovy_val := mjson.as_float(obj["fovy"]) or_return
 	proj_str := mjson.as_string(obj["projection"]) or_return
 
 	projection: CameraProjection
 	switch proj_str {
 	case "PERSPECTIVE":
-		projection = .PERSPECTIVE
+		fovy := mjson.as_float(obj["fovy"]) or_return
+		projection = Perspective{fovy = f32(fovy)}
 	case "ORTHOGRAPHIC":
-		projection = .ORTHOGRAPHIC
+		height := mjson.as_float(obj["height"]) or_return
+		projection = Orthographic{height = f32(height)}
 	case:
 		return .PARSE_ERROR
 	}
 
-	camera_create(entity_id, f32(fovy_val), projection)
+	camera_create(entity_id, projection)
 
 	if main_val, has_main := obj["main"]; has_main {
 		if is_main, ok := main_val.(json.Boolean); ok && bool(is_main) {

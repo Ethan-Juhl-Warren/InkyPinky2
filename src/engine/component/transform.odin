@@ -767,6 +767,7 @@ _transform_get_view_matrix :: proc(entity_id: entity.Id) -> matrix[4,4]f32 {
 	return linalg.matrix4_look_at(transform.position, transform.position + forward, up)
 }
 
+
 transform_from_mjson :: proc(entity_id: entity.Id, value: json.Value) -> error.Code {
     obj, ok := value.(json.Object)
 	if !ok {

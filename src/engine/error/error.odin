@@ -100,7 +100,7 @@ INFO := [Code]Info {
 	},
 	.INVALID_CAMERA_PROJECTION = {
 		message = "Invalid camera projection, projection type either unknown or none",
-		hint = "use .PERSPECTIVE or .ORTHOGRAPHIC",
+		hint = "the camera holds the other projection, or none at all, give it a Perspective{fovy} or an Orthographic{height}",
 		severity = .ERROR,
 	},
 	.NO_MAIN_CAMERA_SET = {
