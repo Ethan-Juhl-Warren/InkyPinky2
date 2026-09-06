@@ -3,7 +3,9 @@ import "../entity"
 import "core:math/linalg"
 import "../registry"
 import "../error"
+import "../mjson"
 import "core:math"
+import "core:encoding/json"
 
 @(private) camera_manager: CameraManager
 
@@ -280,3 +282,30 @@ matrix and the renderer decides what to do with them.
 camera_get_view_matrix and camera_get_projection_matrix above are the
 replacement, and they already existed.
 */
+
+
+
+camera_from_mjson :: proc(entity_id: entity.Id, value: json.Value) -> error.Code {
+	obj := mjson.as_object(value) or_return
+	fovy_val := mjson.as_float(obj["fovy"]) or_return
+	proj_str := mjson.as_string(obj["projection"]) or_return
+
+	projection: CameraProjection
+	switch proj_str {
+	case "PERSPECTIVE":
+		projection = .PERSPECTIVE
+	case "ORTHOGRAPHIC":
+		projection = .ORTHOGRAPHIC
+	case:
+		return .PARSE_ERROR
+	}
+
+	camera_create(entity_id, f32(fovy_val), projection)
+
+	if main_val, has_main := obj["main"]; has_main {
+		if is_main, ok := main_val.(json.Boolean); ok && bool(is_main) {
+			return set_main_camera(entity_id)
+		}
+	}
+	return .NONE
+}

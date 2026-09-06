@@ -10,6 +10,18 @@ import "core:strings"
 
 Id :: distinct u32
 
+SceneDescriptor :: struct {
+	name: string,
+	id: Id,
+	path: string,								// TODO: make work for path and hash
+}
+
+SceneManifest :: struct {
+	by_name: map[string]SceneDescriptor,		// TODO currently 2 maps, might change to 1, and other just stores indices
+	by_index: map[Id]SceneDescriptor,
+	initialized: bool,
+}
+
 @(private)
 SceneManager :: struct {
 	entity_names: map[string]entity.Id,
@@ -60,7 +72,7 @@ add_entity :: proc(name: string, scene_id: Id) -> entity.Id {
 	name := strings.clone(name)
 
 	scene_manager.next_entity_id += 1
-	id := entity.make_id(cast(u32)scene_manager.scene_id, cast(u32)scene_manager.next_entity_id)
+	id := entity.make_id(cast(u32)scene_id, cast(u32)scene_manager.next_entity_id)
 	err := registry.create_item(&scene_manager.entity_registry, id, name)
 	error.must(err)
 	scene_manager.entity_names[name] = id

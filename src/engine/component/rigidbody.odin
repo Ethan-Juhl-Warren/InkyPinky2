@@ -1,8 +1,10 @@
 package component
 import "../registry"
 import "../error"
+import "../mjson"
 import b3 "vendor:box3d"
 import "../entity"
+import "core:encoding/json"
 
 @(private) rigidbody_manager: RigidBodyManager
 
@@ -63,6 +65,23 @@ create_rigidbody :: proc(entity_id: entity.Id, bodydef: b3.BodyDef) {
 
 	err := registry.create_item(&rigidbody_manager.rigidbody_registry, entity_id, rigidbody)
 	error.must(err)
+}
+
+// Steph Code - Ethan please dont wys this code too hard, im just a boy
+// adds shape of box to shapes list thing, TODO prob add similar functions for other shape variants or make it a generic
+// I think Ethan likes it as separate functions
+add_box_shape :: proc(entity_id: entity.Id, half_extents: [3]f32, density: f32, is_sensor: bool = false) {
+	assert(rigidbody_manager.initialized, "add_box_shape: rigidbody manager not initialized, call init_rigidbody_manager first")
+	rigidbody, found := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
+	error.must(found)
+
+	shape: CollisionShape = {
+		geometry = BoxGeometry{half_extents = half_extents},
+		density = density,
+		is_sensor = is_sensor,
+	}
+
+	append(&rigidbody.shapes, shape)
 }
 
 destroy_rigidbody :: proc(entity_id: entity.Id) {
@@ -140,4 +159,33 @@ _unrealize_rigidbody :: proc(rigidbody: ^RigidBody) {
 _free_rigidbody :: proc(rigidbody: ^RigidBody) {
 	_unrealize_rigidbody(rigidbody)
 	delete(rigidbody.shapes)
+}
+
+rigidbody_from_mjson :: proc (entity_id: entity.Id, value: json.Value) -> error.Code {
+	obj := mjson.as_object(value) or_return
+	kind := mjson.as_string(obj["kind"]) or_return
+
+	bodydef := b3.DefaultBodyDef()
+	switch kind {
+		case "STATIC":
+			bodydef.type = .staticBody
+		case "DYNAMIC":
+			bodydef.type = .dynamicBody
+		case:
+			return .PARSE_ERROR
+	}
+
+	create_rigidbody(entity_id, bodydef)
+
+	half_extent := mjson.vec3(obj["half_extent"]) or_return
+
+	density: f32 = 0
+	density_val, has_density := obj["density"]
+	if has_density {
+		density_f := mjson.as_float(density_val) or_return
+		density = f32(density_f)
+	}
+
+	add_box_shape(entity_id, half_extent, density)
+	return .NONE
 }

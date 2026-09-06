@@ -2,7 +2,9 @@ package component
 import "../entity"
 import "../registry"
 import "../error"
+import "../mjson"
 import "core:math/linalg"
+import "core:encoding/json"
 
 @(private) transform_manager: TransformManager
 
@@ -763,4 +765,17 @@ _transform_get_view_matrix :: proc(entity_id: entity.Id) -> matrix[4,4]f32 {
 	up := linalg.quaternion_mul_vector3(transform.rotation, GLOBAL_UP)
 	forward :=  linalg.quaternion_mul_vector3(transform.rotation, GLOBAL_FORWARD)
 	return linalg.matrix4_look_at(transform.position, transform.position + forward, up)
+}
+
+transform_from_mjson :: proc(entity_id: entity.Id, value: json.Value) -> error.Code {
+    obj, ok := value.(json.Object)
+	if !ok {
+		return .PARSE_ERROR
+	}
+	position := mjson.vec3(obj["position"]) or_return
+	scale := mjson.vec3(obj["scale"]) or_return
+	rotation := mjson.quat(obj["rotation"]) or_return
+
+	transform_create(entity_id, position, scale, rotation)
+	return .NONE
 }
