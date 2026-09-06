@@ -56,7 +56,7 @@ read_asset_by_hash :: proc(hash: pak.Hash) -> ([]byte, error.Code) {
     if config.assets_packed() {
         return pak.read(assets, hash)
     } else {
-        error.must(.INVALID_READ_TO_ASSET_PACK)
+        error.throw(.INVALID_READ_TO_ASSET_PACK)
         return nil, .INVALID_READ_TO_ASSET_PACK // kkk unreachable
     }
 }

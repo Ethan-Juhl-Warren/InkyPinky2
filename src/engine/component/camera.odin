@@ -442,8 +442,8 @@ camera_get_projection_matrix :: proc(entity_id: entity.Id, aspect, near, far: f3
         right := top * aspect
         return linalg.matrix_ortho3d(-right, right, -top, top, near, far)
     }
-    error.must(.INVALID_CAMERA_PROJECTION) // the union is nil, the camera was never given a projection
-    return {} // Unreachable kkk must add error.throw at some stage
+    error.throw(.INVALID_CAMERA_PROJECTION) // the union is nil, the camera was never given a projection
+    return {} // Unreachable
 }
 
 /*

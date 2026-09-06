@@ -51,7 +51,7 @@ create_entity :: proc(name: string) -> entity.Id {
 	assert(scene_manager.initialized, "create_entity: scene manager not initialized, call init_scene_manager first")
 	_, found := scene_manager.entity_names[name]
 	if found {
-		error.must(.NAME_EXISTS)
+		error.throw(.NAME_EXISTS)
 	}
 	name := strings.clone(name)
 
@@ -67,7 +67,7 @@ add_entity :: proc(name: string, scene_id: Id) -> entity.Id {
 	assert(scene_manager.initialized, "add_entity: scene manager not initialized, call init_scene_manager first")
 	_, found := scene_manager.entity_names[name]
 	if found {
-		error.must(.NAME_EXISTS)
+		error.throw(.NAME_EXISTS)
 	}
 	name := strings.clone(name)
 
@@ -94,7 +94,7 @@ destroy_entity_by_name :: proc(name: string) {
 	assert(scene_manager.initialized, "destroy_entity_by_name: scene manager not initialized, call init_scene_manager first")
 	entity_id, found := scene_manager.entity_names[name]
 	if !found {
-		error.must(.OBJECT_NOT_FOUND)
+		error.throw(.OBJECT_NOT_FOUND)
 	}
 	destroy_entity_by_id(entity_id)
 }

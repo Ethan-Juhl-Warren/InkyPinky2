@@ -312,6 +312,12 @@ must :: proc(code: Code, loc := #caller_location) {
 	panic(get_error_message(code), loc)
 }
 
+
+throw :: proc(code: Code, loc := #caller_location) {
+	print(code, loc)
+	panic(get_error_message(code), loc)
+}
+
 /*
 Builds the same text `print` emits, for pushing errors somewhere other than a
 terminal such as an in-game console.

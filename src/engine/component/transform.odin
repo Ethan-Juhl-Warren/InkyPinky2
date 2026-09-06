@@ -358,7 +358,7 @@ transform_exists :: proc(entity_id: entity.Id) -> bool {
 	assert(transform_manager.initialized, "transform_set_transform: transform manager not initialized, call init_transform_manager first")
 	_, found := registry.get_item(&transform_manager.transform_registry, entity_id)
 	if found == .ID_INVALID {
-		error.must(.ID_INVALID)
+		error.throw(.ID_INVALID)
 	}
 	return found == .NONE
 }
