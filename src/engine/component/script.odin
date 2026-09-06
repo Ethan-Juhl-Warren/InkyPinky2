@@ -29,7 +29,7 @@ inti_script_manager :: proc() {
         return
     }
     registry.init_registry(&script_manager.script_registry, nil)
-    transform_manager.initialized = true
+    script_manager.initialized = true
 }
 
 /*

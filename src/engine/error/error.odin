@@ -3,6 +3,21 @@ import "base:runtime"
 import "core:fmt"
 import "core:strings"
 
+
+/*
+Stores Error configuration
+*/
+@(private)
+ErrorConfig :: struct {
+	color: bool,
+	hints: bool
+}
+
+/*
+Error configuration
+*/
+cfg :: ErrorConfig {true, true}
+
 /*
 Identifies a failure. Every engine procedure that can fail returns one of these,
 with `.NONE` meaning success.
@@ -223,12 +238,6 @@ get_severity :: proc(code: Code) -> Severity {
 	return INFO[code].severity if code >= min(Code) && code <= max(Code) else .ERROR
 }
 
-// Set to false to strip the ANSI colour codes, e.g. when piping output to a file.
-color := true
-
-// Set to false to drop the "hint:" line once the messages stop being news.
-hints := true
-
 /*
 Prints a code to stderr, along with its hint and the call site.
 
@@ -312,7 +321,13 @@ must :: proc(code: Code, loc := #caller_location) {
 	panic(get_error_message(code), loc)
 }
 
+/*
+Prints a code and aborts.
 
+Inputs:
+- code: The code to print, `.NONE` still aborts
+- loc: The call site, captured automatically and reported in the panic
+*/
 throw :: proc(code: Code, loc := #caller_location) {
 	print(code, loc)
 	panic(get_error_message(code), loc)
@@ -356,13 +371,13 @@ Example:
 */
 @(private)
 _write :: proc(b: ^strings.Builder, code: Code, detail: string, loc: runtime.Source_Code_Location) {
-	tag := "\e[1;31m" if color else ""
+	tag := "\e[1;31m" if cfg.color else ""
 	if get_severity(code) == .WARNING {
-		tag = "\e[1;33m" if color else ""
+		tag = "\e[1;33m" if cfg.color else ""
 	}
-	cyan := "\e[36m" if color else ""
-	grey := "\e[90m" if color else ""
-	reset := "\e[0m" if color else ""
+	cyan := "\e[36m" if cfg.color else ""
+	grey := "\e[90m" if cfg.color else ""
+	reset := "\e[0m" if cfg.color else ""
 
 	label := "[ERROR]" if get_severity(code) == .ERROR else "[WARN] "
 	fmt.sbprintfln(b, "%s%s %v%s: %s", tag, label, code, reset, get_error_message(code))
@@ -370,7 +385,7 @@ _write :: proc(b: ^strings.Builder, code: Code, detail: string, loc: runtime.Sou
 	if detail != "" {
 		fmt.sbprintfln(b, "  %swhat:%s %s", grey, reset, detail)
 	}
-	if hint := get_error_hint(code); hints && hint != "" {
+	if hint := get_error_hint(code); cfg.hints && hint != "" {
 		fmt.sbprintfln(b, "  %shint:%s %s%s%s", grey, reset, cyan, hint, reset)
 	}
 	fmt.sbprintfln(
@@ -381,7 +396,7 @@ _write :: proc(b: ^strings.Builder, code: Code, detail: string, loc: runtime.Sou
 
 /*
 Shortens an absolute source path for display, turning
-"E:\Dev\3DEngine\src\main.odin" into "src/main.odin".
+"C:\Documents\3DEngine\src\main.odin" into "src/main.odin".
 
 *Allocates Using Temp Allocator*
 

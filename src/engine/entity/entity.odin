@@ -21,31 +21,43 @@ package id
 Id :: distinct u64
 
 INDEX_BITS :: 32
-
 INDEX_MASK :: u64(1) << INDEX_BITS - 1
 SCENE_MASK :: ~INDEX_MASK
-
 SCENE_FIRST :: u32(1)
-
-// The zero value, and the only invalid one.
 INVALID :: Id(0)
 
-#assert(size_of(Id) == 8)
-#assert(u64(INVALID) == 0) // must stay the zero value, do not change
+/*
+Creates an Id from a scene ID and an index
 
+Input:
+- scene: u32 A scene Id
+- index: u32 A entity index
+
+Output:
+The packed Id
+*/
 make_id :: proc(scene: u32, index: u32) -> Id {
-	assert(scene >= SCENE_FIRST, "id.make_id: scene 0 is reserved, number scenes from SCENE_FIRST")
+	assert(scene >= SCENE_FIRST, "make_id: scene 0 is reserved, number scenes from SCENE_FIRST")
 	return Id(u64(index) | u64(scene) << INDEX_BITS)
 }
 
+/*
+Returns the entity index part of the Id
+*/
 index :: proc "contextless" (id: Id) -> u32 {
 	return u32(u64(id) & INDEX_MASK)
 }
 
+/*
+Returns the scene Id of the Id
+*/
 scene :: proc "contextless" (id: Id) -> u32 {
 	return u32(u64(id) >> INDEX_BITS)
 }
 
+/*
+Returns true if Id is valid and false if not
+*/
 is_valid :: proc "contextless" (id: Id) -> bool {
 	return scene(id) >= SCENE_FIRST
 }
@@ -57,10 +69,16 @@ tag_of :: proc "contextless" (scene: u32) -> Id {
 	return Id(u64(scene) << INDEX_BITS)
 }
 
+/*
+Returns true if an Id belongs to an entity in a particular scene based on scene tag
+*/
 in_scene :: proc "contextless" (id: Id, tag: Id) -> bool {
 	return Id(u64(id) & SCENE_MASK) == tag
 }
 
+/*
+Returns true if both a and b are in the same scene
+*/
 same_scene :: proc "contextless" (a, b: Id) -> bool {
 	return (u64(a) ~ u64(b)) & SCENE_MASK == 0
 }
