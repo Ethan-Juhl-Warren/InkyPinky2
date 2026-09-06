@@ -83,7 +83,9 @@ _load_scene_descriptor :: proc(descriptor: SceneDescriptor) -> error.Code {
 			if key == "name" { continue }
 			if key == "model" { continue } // TODO no ModelManager yet
 			parser, known := component_parsers[key]
-			if !known { continue }
+			if !known {
+				return .PARSE_ERROR
+			}
 			if err := parser(id, value); err != .NONE {
 				return err
 			}
