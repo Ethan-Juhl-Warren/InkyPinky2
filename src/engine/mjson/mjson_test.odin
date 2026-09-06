@@ -38,6 +38,6 @@ test_as_object_rejects_non_object :: proc(t: ^testing.T) {
 
 @(test)
 test_parse_rejects_malformed_input :: proc(t: ^testing.T) {
-	_, code := parse(transmute([]byte)string("{ this is not valid"))
+	v, code := parse(transmute([]byte)string("{ this is not valid"))
 	testing.expect(t, code == .PARSE_ERROR)
 }
