@@ -19,16 +19,19 @@ component_parsers := map[string]Component_Parser {
 	// "model" : will do but model isnt set up yet
 }
 
-load_manifest :: proc(path: string) -> (manifest: SceneManifest, err: error.Code) {
+load_manifest :: proc(manifest:  ^SceneManifest, path: string) -> error.Code {
+	assert(manifest != nil, "Cannot load to a nil manifest")
 	data := file.read_asset(path) or_return
 	defer delete(data)
 
 	root := mjson.parse(data) or_return
 	defer json.destroy_value(root)
 
-	obj := mjson.as_object(root) or_return          // or move _as_x into a shared package, see note below
+	obj := mjson.as_object(root) or_return
 	scenes := mjson.as_array(obj["scenes"]) or_return
 
+	scene_count := len(scenes)
+	
 	for entry in scenes {
 		entry_obj := mjson.as_object(entry) or_return
 		name := mjson.as_string(entry_obj["name"]) or_return
@@ -36,33 +39,33 @@ load_manifest :: proc(path: string) -> (manifest: SceneManifest, err: error.Code
 		index := Id(index_f)
 		desc_path := mjson.as_string(entry_obj["descriptor"]) or_return
 
-		descriptor := SceneDescriptor{name = name, id = index, path = desc_path}
-		manifest.by_name[name] = descriptor
-		manifest.by_index[index] = descriptor
+		descriptor := SceneDescriptor{name = name, id = index, refrence = desc_path}
+		manifest.scenes_descriptors[index] = descriptor
+		manifest.scene_names[name] = index
 	}
-	manifest.initialized = true
-	return manifest, .NONE
+
+	return .NONE
 }
 
-load_scene_by_name :: proc(manifest: ^SceneManifest, name: string) -> error.Code {
-	descriptor, found := manifest.by_name[name]
+load_scene_by_name :: proc(#by_ptr manifest: SceneManifest, name: string) -> error.Code {
+	index, found := manifest.scene_names[name]
 	if !found {
 		return .OBJECT_NOT_FOUND
 	}
-	return _load_scene_descriptor(descriptor)
+	return _load_scene_descriptor(manifest.scenes_descriptors[int(index)])
 }
 
-load_scene_by_index :: proc(manifest: ^SceneManifest, index: Id) -> error.Code {
-	descriptor, found := manifest.by_index[index]
-	if !found {
-		return .OBJECT_NOT_FOUND
+load_scene_by_index :: proc(#by_ptr manifest: SceneManifest, index: Id) -> error.Code {
+	if index < 0 || int(index) > len(manifest.scenes_descriptors) {
+		return .ID_INVALID
 	}
+	descriptor := manifest.scenes_descriptors[index]
 	return _load_scene_descriptor(descriptor)
 }
 
 @(private)
 _load_scene_descriptor :: proc(descriptor: SceneDescriptor) -> error.Code {
-	data := file.read_asset(descriptor.path) or_return
+	data := file.read_asset(descriptor.refrence) or_return
 	defer delete(data)
 
 	root := mjson.parse(data) or_return

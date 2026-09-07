@@ -2,6 +2,7 @@ package scene
 import "../entity"
 import "../registry"
 import "../error"
+import "../file"
 import "core:strings"
 
 
@@ -12,14 +13,13 @@ Id :: distinct u32
 
 SceneDescriptor :: struct {
 	name: string,
-	id: Id,
-	path: string,								// TODO: make work for path and hash
+	refrence: file.AssetRefrence,
+	id: Id
 }
 
 SceneManifest :: struct {
-	by_name: map[string]SceneDescriptor,		// TODO currently 2 maps, might change to 1, and other just stores indices
-	by_index: map[Id]SceneDescriptor,
-	initialized: bool,
+	scenes_descriptors: [dynamic]SceneDescriptor,
+	scene_names: map[string]Id
 }
 
 @(private)

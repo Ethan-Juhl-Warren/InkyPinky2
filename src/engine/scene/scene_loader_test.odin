@@ -15,7 +15,7 @@ test_load_real_scene_descriptor :: proc(t: ^testing.T) {
 	descriptor := SceneDescriptor{
 		name = "City Outskirts",
 		id   = 1,
-		path = "scene_descriptor.mjson",   // relative to repo root
+		refrence = "scene_descriptor.mjson",   // relative to repo root
 	}
 	err := _load_scene_descriptor(descriptor)
 	testing.expect(t, err == .NONE)

@@ -7,6 +7,11 @@ import "core:os"
 @(private) assets: pak.Pak
 @(private) ASSET_PACK_PATH :: "./assets.pak"
 
+AssetRefrence :: union {
+	string,
+	pak.Hash
+}
+
 read_file :: proc(path: string) -> (string, error.Code) {
     data, err := read_file_bytes(path)
     if err != .NONE {
@@ -41,7 +46,11 @@ release_asset_pack :: proc() {
     }
 }
 
-read_asset :: proc{read_asset_by_path, read_asset_by_hash}
+read_asset :: proc{
+    read_asset_by_refrence, 
+    read_asset_by_path, 
+    read_asset_by_hash
+}
 
 read_asset_by_path :: proc(path: string) -> ([]byte, error.Code) {
     if config.assets_packed() {
@@ -57,6 +66,14 @@ read_asset_by_hash :: proc(hash: pak.Hash) -> ([]byte, error.Code) {
         return pak.read(assets, hash)
     } else {
         error.must(.INVALID_READ_TO_ASSET_PACK)
-        return nil, .INVALID_READ_TO_ASSET_PACK // kkk unreachable
+        return nil, .INVALID_READ_TO_ASSET_PACK
     }
+}
+
+read_asset_by_refrence :: proc(refrence: AssetRefrence) -> ([]byte, error.Code) {
+    switch r in refrence {
+        case string: return read_asset_by_path(r)
+        case pak.Hash: return read_asset_by_hash(r)
+    }
+    return nil, .CANNOT_OPEN_FILE
 }
