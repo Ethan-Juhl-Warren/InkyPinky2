@@ -89,9 +89,14 @@ destroy_item :: proc(registry: ^Registry($T, $K), item_id: K) -> error.Code wher
 	return .NONE
 }
 
-registry_slice :: proc(registry: ^Registry($T, $K)) -> []T where intrinsics.type_is_integer(K) {
-	assert(registry != nil, "registry_slice: cannot get slice of null registry")
+registry_item_slice :: proc(registry: ^Registry($T, $K)) -> []T where intrinsics.type_is_integer(K) {
+	assert(registry != nil, "registry_item_slice: cannot get slice of null registry")
 	return registry.items[:]
+}
+
+registry_id_slice :: proc(registry: ^Registry($T, $K)) -> []K where intrinsics.type_is_integer(K) {
+	assert(registry != nil, "registry_id_slice: cannot get slice of null registry")
+	return registry.id_of[:]
 }
 
 registry_len :: proc(registry: ^Registry($T, $K)) -> int where intrinsics.type_is_integer(K) {
