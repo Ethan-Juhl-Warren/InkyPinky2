@@ -35,30 +35,13 @@ stay stable. See include/engine.h, which is this same contract written out for
 clients that are not Odin, and has to be kept in step by hand.
 */
 
-// Which windowing system the client's window came from. Mirrors
-// render.SurfaceKind and must keep the same values.
-SURFACE_WIN32   :: u32(1)
-SURFACE_X11     :: u32(2)
-SURFACE_WAYLAND :: u32(3)
 
-// No window. The engine draws into its own framebuffer and the client collects
-// the frame with engine_read_pixels.
-//
-// This is for clients that have no window worth giving the engine. A browser
-// based UI is the case in point: its window belongs to its own compositor, and
-// a native window placed over the page loses to that compositor no matter how
-// it is arranged. Handing back pixels avoids the fight entirely, and lets the
-// client draw its own interface over the top of the viewport, which it cannot
-// do over a real window.
+SURFACE_WIN32     :: u32(1)
+SURFACE_X11       :: u32(2)
+SURFACE_WAYLAND   :: u32(3)
 SURFACE_OFFSCREEN :: u32(4)
 
-// Bits in Frame.actions.
-//
-// These are intentionally movement intents and not key codes. Shipping a
-// keyboard enum across this boundary would be the engine telling the client
-// what an input device is, and the client may not have a keyboard, or may want
-// these bound to a gamepad, a script or a replay file. Mapping whatever it
-// does have onto six bits is the client's job.
+///kkkkkkk
 ACTION_FORWARD :: u32(1 << 0)
 ACTION_BACK    :: u32(1 << 1)
 ACTION_LEFT    :: u32(1 << 2)
@@ -66,9 +49,14 @@ ACTION_RIGHT   :: u32(1 << 3)
 ACTION_UP      :: u32(1 << 4)
 ACTION_DOWN    :: u32(1 << 5)
 
-@(private) engine_ctx: runtime.Context
-@(private) viewport_width: i32 = 1
-@(private) viewport_height: i32 = 1
+@(private)
+Engine :: struct {
+    ctx: runtime.Context,
+    viewport_width: i32,
+    viewport_height: i32,
+}
+
+@(private) engine: Engine
 
 /*
 Brings the engine up on a window the client already created.
@@ -102,11 +90,12 @@ into the engine has to come from that same thread.
 */
 @(export, link_name="engine_init")
 init :: proc "c" (surface_kind: u32, display, handle: rawptr, width, height: i32) -> i32 {
-    engine_ctx = runtime.default_context()
-    context = engine_ctx
-    viewport_width = max(width, 1)
-    viewport_height = max(height, 1)
-    if !render.init(render.SurfaceKind(surface_kind), display, handle, viewport_width, viewport_height) {
+    engine.ctx = runtime.default_context()
+    context = engine.ctx
+    assert(width * height > 0, "Error: engine.init engine viewport size must be positive, non-zero")
+    engine.viewport_width = max(width, 1)
+    engine.viewport_height = max(height, 1)
+    if !render.init(render.SurfaceKind(surface_kind), display, handle, engine.viewport_width, engine.viewport_height) {
         return 0
     }
     config.load_config()
@@ -136,7 +125,7 @@ and therefore owns the event loop.
 */
 @(export, link_name="engine_tick")
 tick :: proc "c" (dt, mouse_dx, mouse_dy: f32, actions: u32) -> i32 {
-    context = engine_ctx
+    context = engine.ctx
     _temp_tick(dt, mouse_dx, mouse_dy, actions)
     return 1
 }
@@ -165,7 +154,7 @@ that got its arithmetic wrong sees nothing rather than a torn image.
 */
 @(export, link_name="engine_read_pixels")
 read_pixels :: proc "c" (dest: rawptr, capacity: i32) -> i32 {
-    context = engine_ctx
+    context = engine.ctx
     if capacity <= 0 {
         return 0
     }
@@ -185,10 +174,10 @@ the engine can notice one on its own.
 */
 @(export, link_name="engine_resize")
 resize :: proc "c" (width, height: i32) {
-    context = engine_ctx
-    viewport_width = max(width, 1)
-    viewport_height = max(height, 1)
-    render.resize(viewport_width, viewport_height)
+    context = engine.ctx
+    engine.viewport_width = max(width, 1)
+    engine.viewport_height = max(height, 1)
+    render.resize(engine.viewport_width, engine.viewport_height)
 }
 
 /*
@@ -203,7 +192,7 @@ The window is the client's and is left untouched.
 */
 @(export, link_name="engine_destroy")
 destroy :: proc "c" () -> i32 {
-    context = engine_ctx
+    context = engine.ctx
     component.destroy_component_managers()
     scene.destroy_scene_manager()
     file.release_asset_pack()
@@ -211,8 +200,6 @@ destroy :: proc "c" () -> i32 {
     render.destroy()
     return 1
 }
-
-
 
 ////////////////////TEMP TEST STUFF///////////////////////////////
 @(private) camera: entity.Id
@@ -235,7 +222,7 @@ FAR_PLANE :: 1000.0
 _temp_init :: proc() {
     camera = scene.create_entity("main camera")
     component.transform_create(camera, {0, 10, 20}, {1, 1, 1}, linalg.QUATERNIONF32_IDENTITY)
-	component.camera_create(camera, 45, .PERSPECTIVE)
+	component.camera_create(camera, component.Perspective{fovy = 45})
 	camera_error := component.set_main_camera(camera)
 
     world_def := b3.DefaultWorldDef()
@@ -270,7 +257,7 @@ _temp_tick :: proc(dt, mouse_dx, mouse_dy: f32, actions: u32) {
 
     render.begin_frame(CLEAR_COLOR)
 
-    aspect := f32(viewport_width) / f32(viewport_height)
+    aspect := f32(engine.viewport_width) / f32(engine.viewport_height)
     render.set_camera(
         component.camera_get_view_matrix(camera),
         component.camera_get_projection_matrix(camera, aspect, NEAR_PLANE, FAR_PLANE),

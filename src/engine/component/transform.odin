@@ -358,7 +358,7 @@ transform_exists :: proc(entity_id: entity.Id) -> bool {
 	assert(transform_manager.initialized, "transform_set_transform: transform manager not initialized, call init_transform_manager first")
 	_, found := registry.get_item(&transform_manager.transform_registry, entity_id)
 	if found == .ID_INVALID {
-		error.must(.ID_INVALID)
+		error.throw(.ID_INVALID)
 	}
 	return found == .NONE
 }
@@ -766,6 +766,7 @@ _transform_get_view_matrix :: proc(entity_id: entity.Id) -> matrix[4,4]f32 {
 	forward :=  linalg.quaternion_mul_vector3(transform.rotation, GLOBAL_FORWARD)
 	return linalg.matrix4_look_at(transform.position, transform.position + forward, up)
 }
+
 
 transform_from_mjson :: proc(entity_id: entity.Id, value: json.Value) -> error.Code {
     obj, ok := value.(json.Object)

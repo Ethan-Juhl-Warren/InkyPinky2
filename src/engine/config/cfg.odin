@@ -35,7 +35,7 @@ _parse_config_file :: proc(path: string) -> Config {
 
         parts, err := strings.split_n(trimmed, " ", 2, context.temp_allocator)
         if err != nil || len(parts) < 2 {
-            error.must(.CANNOT_OPEN_FILE)
+            error.throw(.CANNOT_OPEN_FILE)
         }
 
         key := parts[0]
@@ -45,7 +45,7 @@ _parse_config_file :: proc(path: string) -> Config {
                 val_bool, ok := strconv.parse_bool(value)
                 config.packed_assets = val_bool
             case:
-                error.must(.CANNOT_OPEN_FILE) 
+                error.throw(.CANNOT_OPEN_FILE) 
         }
     }
     return config
@@ -56,7 +56,7 @@ _parse_config_file :: proc(path: string) -> Config {
 _read_file :: proc(path: string) -> string {
     data, err := os.read_entire_file_from_path(path, context.allocator)
     if err != os.ERROR_NONE {
-        error.must(.FILE_NOT_FOUND)
+        error.throw(.FILE_NOT_FOUND)
     }
     return string(data)
 }
