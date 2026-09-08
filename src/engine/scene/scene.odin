@@ -82,6 +82,11 @@ destroy_entity :: proc(entity_id: entity.Id) {
 	component.release_entity_components(entity_id)
 }
 
+get_manifest :: proc() -> ^SceneManifest {
+	assert(scene_manager.initialized, "get_manifest: scene manager not initialized")
+	return &scene_manager.scene_manifest
+}
+
 @(private)
 _init_manifest :: proc(scene_manifest: ^SceneManifest) {
 	scene_manifest.scene_names = make(map[string]Id)

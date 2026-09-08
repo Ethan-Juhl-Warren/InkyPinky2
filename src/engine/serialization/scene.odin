@@ -68,7 +68,8 @@ _load_scene_descriptor :: proc(descriptor: scene.SceneDescriptor) -> error.Code 
 	return .NONE
 }
 
-load_scene_by_name :: proc(#by_ptr manifest: scene.SceneManifest, name: string) -> error.Code {
+load_scene_by_name :: proc(name: string) -> error.Code {
+    manifest := scene.get_manifest()
 	index, found := manifest.scene_names[name]
 	if !found {
 		return .OBJECT_NOT_FOUND
@@ -76,7 +77,8 @@ load_scene_by_name :: proc(#by_ptr manifest: scene.SceneManifest, name: string) 
 	return _load_scene_descriptor(manifest.scenes_descriptors[int(index)])
 }
 
-load_scene_by_index :: proc(#by_ptr manifest: scene.SceneManifest, index: scene.Id) -> error.Code {
+load_scene_by_index :: proc(index: scene.Id) -> error.Code {
+    manifest := scene.get_manifest()
 	if index < 0 || int(index) > len(manifest.scenes_descriptors) {
 		return .ID_INVALID
 	}
