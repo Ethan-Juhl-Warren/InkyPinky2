@@ -200,6 +200,26 @@ destroy :: proc "c" () -> i32 {
     return 1
 }
 
+@(export, link_name="engine_load_scene_by_name")
+load_scene_by_name :: proc "c" (name: cstring) -> i32 {
+	context = engine.ctx
+	if serialization.load_scene_by_name(string(name)) != .NONE {
+		return 0
+	}
+	scene.activate_next_scene()
+	return 1
+}
+
+@(export, link_name="engine_load_scene_by_index")
+load_scene_by_index :: proc "c" (index: i32) -> i32 {
+	context = engine.ctx
+	if serialization.load_scene_by_index(scene.Id(index)) != .NONE {
+		return 0
+	}
+	scene.activate_next_scene()
+	return 1
+}
+
 /*
 Initilizes engine Subsystems
 
@@ -221,6 +241,13 @@ _destroy_subsystems :: proc() {
     scene.destroy_scene_manager()
     file.release_asset_pack()
     serialization.destroy_serialization_system()
+}
+
+@(private)
+_load_start_scene :: proc() {
+    serialization.scene_manifest_from_mjson(scene.get_manifest(), "scenes.mjson")
+    serialization.load_scene_by_index(1)
+    scene.activate_next_scene()
 }
 
 ////////////////////TEMP TEST STUFF///////////////////////////////

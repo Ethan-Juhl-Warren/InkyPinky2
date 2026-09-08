@@ -75,6 +75,18 @@ preload_entity :: proc() -> entity.Id {
 	return id
 }
 
+activate_next_scene :: proc() {
+	assert(scene_manager.initialized, "activate_next_scene: scene manager not initialized")
+
+	for id in scene_manager.active_scene.entities {
+		component.release_entity_components(id)
+	}
+	clear(&scene_manager.active_scene.entities)
+
+	scene_manager.active_scene, scene_manager.next_scene = scene_manager.next_scene, scene_manager.active_scene
+	scene_manager.next_scene.next_entity_id = 0
+}
+
 destroy_entity :: proc(entity_id: entity.Id) {
 	assert(scene_manager.initialized, "destroy_entity_by_id: scene manager not initialized, call init_scene_manager first")
 
