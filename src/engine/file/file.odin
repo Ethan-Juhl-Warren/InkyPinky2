@@ -7,6 +7,9 @@ import "core:os"
 @(private) assets: pak.Pak
 @(private) ASSET_PACK_PATH :: "./assets.pak"
 
+/*
+Assets can be refrenced as a path: string. or a pak hash: pak.Hash
+*/
 AssetRefrence :: union {
 	string,
 	pak.Hash
@@ -76,6 +79,9 @@ release_asset_pack :: proc() {
     }
 }
 
+/*
+Reads an asset from the mounted pak file and returns its contents as a byte array
+*/
 read_asset :: proc{
     read_asset_by_refrence, 
     read_asset_by_path, 
@@ -127,6 +133,20 @@ read_asset_by_hash :: proc(hash: pak.Hash) -> ([]byte, error.Code) {
     }
 }
 
+/*
+Reads an asset from the mounted pak file and returns its contents as a byte array
+
+Input:
+- regrence: AssetRefrence Refrence to asset in pak
+
+Outputs:
+A byte array containing file contents
+An Error code
+
+Note:
+Should only be used for files that will be packed into a pak on build
+Calling this while not using an asset pack will cause the engine to panic
+*/
 read_asset_by_refrence :: proc(refrence: AssetRefrence) -> ([]byte, error.Code) {
     switch r in refrence {
         case string: return read_asset_by_path(r)

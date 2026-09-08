@@ -20,13 +20,13 @@ test_load_real_scene_descriptor :: proc(t: ^testing.T) {
 	err := _load_scene_descriptor(descriptor)
 	testing.expect(t, err == .NONE)
 
-	crate_id := get_entity_by_name("crate")
+	crate_id := component.name_get_entities("crate")[0]
 	testing.expect(t, crate_id != entity.INVALID)
 
 	pos := component.transform_get_position(crate_id)
 	testing.expect_value(t, pos, [3]f32{0, 8, 0})
 
-	cam_id := get_entity_by_name("main camera")
+	cam_id := component.name_get_entities("main camera")[0]
 	fovy := component.camera_get_fovy(cam_id)
 	testing.expect_value(t, fovy, f32(45.0))
 

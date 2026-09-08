@@ -47,7 +47,6 @@ init_scene_manager :: proc() {
 	_init_scene(scene_manager.active_scene)
 	_init_scene(scene_manager.next_scene)
 	_init_manifest(&scene_manager.scene_manifest)
-
 	scene_manager.initialized = true
 }
 
@@ -78,38 +77,15 @@ preload_entity :: proc() -> entity.Id {
 	return id
 }
 
-// TODO Needs some resource manager cleanup
-destroy_entity_by_id :: proc(entity_id: entity.Id) {
+destroy_entity :: proc(entity_id: entity.Id) {
 	assert(scene_manager.initialized, "destroy_entity_by_id: scene manager not initialized, call init_scene_manager first")
 
 	unordered_remove(&scene_manager.active_scene.entities, entity_id)
 	component.release_entity_components(entity_id)
 }
 
-destroy_entity_by_name :: proc(name: string) {
-	assert(scene_manager.initialized, "destroy_entity_by_name: scene manager not initialized, call init_scene_manager first")
-	entity_id, found := scene_manager.entity_names[name]
-	if !found {
-		error.throw(.OBJECT_NOT_FOUND)
-	}
-	destroy_entity_by_id(entity_id)
-}
 
-get_entity_by_name :: proc(name: string) -> entity.Id {
-	assert(scene_manager.initialized, "get_entity_by_name: scene manager not initialized, call init_scene_manager first")
-	enity, valid := scene_manager.entity_names[name]
-	if !valid {
-		error.must(.OBJECT_NOT_FOUND)
-	}
-	return enity
-}
 
-get_entity_name :: proc(entity_id: entity.Id) -> string {
-	assert(scene_manager.initialized, "get_entity_name: scene manager not initialized, call init_scene_manager first")
-	entity_name, found := registry.get_item(&scene_manager.entity_registry, entity_id)
-	error.must(found)
-	return entity_name^
-}
 
 @(private)
 _init_manifest :: proc(scene_manifest: ^SceneManifest) {

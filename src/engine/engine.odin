@@ -220,7 +220,7 @@ FAR_PLANE :: 1000.0
 
 
 _temp_init :: proc() {
-    camera = scene.create_entity("main camera")
+    camera = scene.create_entity()
     component.transform_create(camera, {0, 10, 20}, {1, 1, 1}, linalg.QUATERNIONF32_IDENTITY)
 	component.camera_create(camera, component.Perspective{fovy = 45})
 	camera_error := component.set_main_camera(camera)

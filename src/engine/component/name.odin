@@ -78,9 +78,8 @@ If the supplied entity_id is invalid, or has no corresponding Name component the
 */
 name_destroy :: proc(entity_id: entity.Id) {
 	assert(name_manager.initialized, "name_destroy: name manager not initialized, call init_name_manager first")
-	name, present := registry.get_item(&name_manager.registry, entity_id)
-	error.must(present)
-	registry.destroy_item(&name_manager.registry, entity_id)
+	err := registry.destroy_item(&name_manager.registry, entity_id)
+	error.print(err)
 }
 
 /*

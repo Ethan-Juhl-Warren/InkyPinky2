@@ -80,7 +80,7 @@ _load_scene_descriptor :: proc(descriptor: SceneDescriptor) -> error.Code {
 		entity_obj := mjson.as_object(entity_value) or_return
 		name := mjson.as_string(entity_obj["name"]) or_return
 
-		id := add_entity(name, descriptor.id)
+		id := preload_entity()
 
 		for key, value in entity_obj {
 			if key == "name" { continue }

@@ -50,7 +50,7 @@ Camera :: struct {
 
 @(private)
 CameraManager :: struct {
-    camera_registry: registry.Registry(Camera, entity.Id),
+    registry: registry.Registry(Camera, entity.Id),
     main_camera: entity.Id,
     initialized: bool
 }
@@ -69,7 +69,7 @@ init_camera_manager :: proc() {
         error.printf(.MANAGER_ALREADY_INITIALIZED, "initializing camera manager")
         return
     }
-    registry.init_registry(&camera_manager.camera_registry, nil)
+    registry.init_registry(&camera_manager.registry, nil)
     camera_manager.initialized = true
 }
 
@@ -86,7 +86,7 @@ destroy_camera_manager :: proc() {
         error.printf(.DESTROYING_UNINITIALIZED_MANAGER, "destroying camera manager")
         return
     }
-    registry.destroy_registry(&camera_manager.camera_registry)
+    registry.destroy_registry(&camera_manager.registry)
     camera_manager.initialized = false
 }
 
@@ -116,7 +116,7 @@ camera_create :: proc(entity_id: entity.Id, projection: CameraProjection) {
         projection = projection
     }
 
-    err := registry.create_item(&camera_manager.camera_registry, entity_id, camera)
+    err := registry.create_item(&camera_manager.registry, entity_id, camera)
     error.must(err)
 }
 
@@ -162,9 +162,8 @@ If the supplied entity_id is invalid, or has no corresponding Camera component t
 */
 camera_destroy :: proc(entity_id: entity.Id) {
     assert(camera_manager.initialized, "camera_destroy: camera manager not initialized, call init_camera_manager first")
-    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
-    error.must(found)
-    registry.destroy_item(&camera_manager.camera_registry, entity_id)
+    err := registry.destroy_item(&camera_manager.registry, entity_id)
+    error.print(err)
 }
 
 /*
@@ -188,7 +187,7 @@ Example:
 */
 camera_get_projection :: proc(entity_id: entity.Id) -> CameraProjection {
     assert(camera_manager.initialized, "camera_get_projection: camera manager not initialized, call init_camera_manager first")
-    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
+    camera, found := registry.get_item(&camera_manager.registry, entity_id)
     error.must(found)
 
     return camera.projection
@@ -207,7 +206,7 @@ If the supplied entity_id is invalid, or has no corresponding Camera component t
 */
 camera_set_projection :: proc(entity_id: entity.Id, projection: CameraProjection) {
     assert(camera_manager.initialized, "camera_set_projection: camera manager not initialized, call init_camera_manager first")
-    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
+    camera, found := registry.get_item(&camera_manager.registry, entity_id)
     error.must(found)
     camera.projection = projection
 }
@@ -266,7 +265,7 @@ either mode is possible
 */
 camera_get_fovy :: proc(entity_id: entity.Id) -> f32 {
     assert(camera_manager.initialized, "camera_get_fovy: camera manager not initialized, call init_camera_manager first")
-    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
+    camera, found := registry.get_item(&camera_manager.registry, entity_id)
     error.must(found)
     perspective, ok := camera.projection.(Perspective)
     if !ok {
@@ -290,7 +289,7 @@ orthographic to perspective, assign a whole projection with camera_set_projectio
 */
 camera_set_fovy :: proc(entity_id: entity.Id, fovy: f32) {
     assert(camera_manager.initialized, "camera_set_fovy: camera manager not initialized, call init_camera_manager first")
-    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
+    camera, found := registry.get_item(&camera_manager.registry, entity_id)
     error.must(found)
     if _, ok := camera.projection.(Perspective); !ok {
         error.must(.INVALID_CAMERA_PROJECTION)
@@ -317,7 +316,7 @@ either mode is possible
 */
 camera_get_orthographic_height :: proc(entity_id: entity.Id) -> f32 {
     assert(camera_manager.initialized, "camera_get_orthographic_height: camera manager not initialized, call init_camera_manager first")
-    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
+    camera, found := registry.get_item(&camera_manager.registry, entity_id)
     error.must(found)
     orthographic, ok := camera.projection.(Orthographic)
     if !ok {
@@ -342,7 +341,7 @@ perspective to orthographic, assign a whole projection with camera_set_projectio
 */
 camera_set_orthographic_height :: proc(entity_id: entity.Id, height: f32) {
     assert(camera_manager.initialized, "camera_set_orthographic_height: camera manager not initialized, call init_camera_manager first")
-    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
+    camera, found := registry.get_item(&camera_manager.registry, entity_id)
     error.must(found)
     if _, ok := camera.projection.(Orthographic); !ok {
         error.must(.INVALID_CAMERA_PROJECTION)
@@ -389,7 +388,7 @@ set_main_camera :: proc(entity_id: entity.Id) -> error.Code {
     if entity_id <= registry.INVALID_ID {
         return .INVALID_CAMERA
     }
-    _, found := registry.get_item(&camera_manager.camera_registry, entity_id)
+    _, found := registry.get_item(&camera_manager.registry, entity_id)
     error.must(found)
     camera_manager.main_camera = entity_id
     return .NONE
@@ -432,7 +431,7 @@ units and needs no conversion. Both take their horizontal extent from aspect
 */
 camera_get_projection_matrix :: proc(entity_id: entity.Id, aspect, near, far: f32) -> matrix[4,4]f32 {
     assert(camera_manager.initialized, "camera_get_projection_matrix: camera manager not initialized, call init_camera_manager first")
-    camera, found := registry.get_item(&camera_manager.camera_registry, entity_id)
+    camera, found := registry.get_item(&camera_manager.registry, entity_id)
     error.must(found)
     switch projection in camera.projection {
     case Perspective:
