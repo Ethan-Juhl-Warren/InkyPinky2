@@ -9,6 +9,7 @@ import "scene"
 import "entity"
 import "error"
 import "component"
+import "serialization"
 import "render"
 
 /*
@@ -98,10 +99,7 @@ init :: proc "c" (surface_kind: u32, display, handle: rawptr, width, height: i32
     if !render.init(render.SurfaceKind(surface_kind), display, handle, engine.viewport_width, engine.viewport_height) {
         return 0
     }
-    config.load_config()
-    file.load_asset_pack()
-    scene.init_scene_manager()
-    component.init_component_managers()
+    _init_subsystems()
     _temp_init()
     return 1
 }
@@ -196,9 +194,33 @@ destroy :: proc "c" () -> i32 {
     component.destroy_component_managers()
     scene.destroy_scene_manager()
     file.release_asset_pack()
+    _destroy_subsystems()
     _temp_destroy()
     render.destroy()
     return 1
+}
+
+/*
+Initilizes engine Subsystems
+
+Note:
+CRITICAL: Subsystems have a strict initialization order. Do not reorder.
+*/
+@(private)
+_init_subsystems :: proc() {
+    config.load_config()
+    serialization.init_serialization_system()
+    file.load_asset_pack()
+    scene.init_scene_manager()
+    component.init_component_managers()
+}
+
+@(private)
+_destroy_subsystems :: proc() {
+    component.destroy_component_managers()
+    scene.destroy_scene_manager()
+    file.release_asset_pack()
+    serialization.destroy_serialization_system()
 }
 
 ////////////////////TEMP TEST STUFF///////////////////////////////

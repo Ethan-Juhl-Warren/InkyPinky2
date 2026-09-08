@@ -96,9 +96,8 @@ If the supplied entity_id is invalid, or has no corresponding Transform componen
 */
 transform_destroy :: proc(entity_id: entity.Id) {
 	assert(transform_manager.initialized, "transform_destroy: transform manager not initialized, call init_transform_manager first")
-	transform, present := registry.get_item(&transform_manager.registry, entity_id)
-	error.must(present)
-	registry.destroy_item(&transform_manager.registry, entity_id)
+	err := registry.destroy_item(&transform_manager.registry, entity_id)
+	error.print(err)
 }
 
 /*

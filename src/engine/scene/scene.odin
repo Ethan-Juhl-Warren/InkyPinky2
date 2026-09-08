@@ -12,14 +12,12 @@ import "core:strings"
 
 Id :: distinct u32
 
-@(private)
 SceneDescriptor :: struct {
 	name: string,
 	refrence: file.AssetRefrence,
 	id: Id
 }
 
-@(private)
 SceneManifest :: struct {
 	scenes_descriptors: [dynamic]SceneDescriptor,
 	scene_names: map[string]Id
