@@ -8,17 +8,6 @@ import "../error"
 import "../mjson"
 import "../file"
 
-@(private)
-Component_Parser :: proc(entity.Id, json.Value) -> error.Code
-
-@(private)
-component_parsers := map[string]Component_Parser {
-	"transform" = component.transform_from_mjson,
-	"camera"    = component.camera_from_mjson,
-	"rigidbody" = component.rigidbody_from_mjson,
-	// "model" : will do but model isnt set up yet
-}
-
 load_manifest :: proc(manifest:  ^SceneManifest, path: string) -> error.Code {
 	assert(manifest != nil, "Cannot load to a nil manifest")
 	data := file.read_asset(path) or_return
@@ -78,7 +67,6 @@ _load_scene_descriptor :: proc(descriptor: SceneDescriptor) -> error.Code {
 	entities := mjson.as_array(obj["entities"]) or_return
 	for entity_value in entities {
 		entity_obj := mjson.as_object(entity_value) or_return
-		name := mjson.as_string(entity_obj["name"]) or_return
 
 		id := preload_entity()
 

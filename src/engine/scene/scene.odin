@@ -84,9 +84,6 @@ destroy_entity :: proc(entity_id: entity.Id) {
 	component.release_entity_components(entity_id)
 }
 
-
-
-
 @(private)
 _init_manifest :: proc(scene_manifest: ^SceneManifest) {
 	scene_manifest.scene_names = make(map[string]Id)

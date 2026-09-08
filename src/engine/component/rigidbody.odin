@@ -160,32 +160,3 @@ _free_rigidbody :: proc(rigidbody: ^RigidBody) {
 	_unrealize_rigidbody(rigidbody)
 	delete(rigidbody.shapes)
 }
-
-rigidbody_from_mjson :: proc (entity_id: entity.Id, value: json.Value) -> error.Code {
-	obj := mjson.as_object(value) or_return
-	kind := mjson.as_string(obj["kind"]) or_return
-
-	bodydef := b3.DefaultBodyDef()
-	switch kind {
-		case "STATIC":
-			bodydef.type = .staticBody
-		case "DYNAMIC":
-			bodydef.type = .dynamicBody
-		case:
-			return .PARSE_ERROR
-	}
-
-	rigidbody_create(entity_id, bodydef)
-
-	half_extent := mjson.vec3(obj["half_extent"]) or_return
-
-	density: f32 = 0
-	density_val, has_density := obj["density"]
-	if has_density {
-		density_f := mjson.as_float(density_val) or_return
-		density = f32(density_f)
-	}
-
-	add_box_shape(entity_id, half_extent, density)
-	return .NONE
-}

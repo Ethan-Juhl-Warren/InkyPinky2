@@ -8,6 +8,6 @@
   "verbose": true,
   "profile": "default",
   "profiles": [
-    { "name": "default", "os": "windows", "checker_path": ["src/runtime", "src/engine/file", "src/engine/mjson", "src/engine", "src/engine", "src/engine/registry", "src/engine/entity", "src/engine/error", "src/engine/render", "src/engine/scene", "src/engine/scripting", "src/engine/component"] }
+    { "name": "default", "os": "windows", "checker_path": ["src/runtime", "src/engine/serialization", "src/engine/file", "src/engine/mjson", "src/engine", "src/engine", "src/engine/registry", "src/engine/entity", "src/engine/error", "src/engine/render", "src/engine/scene", "src/engine/scripting", "src/engine/component"] }
   ]
 }
