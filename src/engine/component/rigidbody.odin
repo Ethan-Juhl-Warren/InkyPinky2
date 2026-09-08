@@ -35,7 +35,7 @@ RigidBody :: struct {
 
 @(private)
 RigidBodyManager :: struct {
-	rigidbody_registry: registry.Registry(RigidBody, entity.Id),
+	registry: registry.Registry(RigidBody, entity.Id),
 	initialized: bool
 }
 
@@ -44,7 +44,7 @@ init_rigidbody_manager :: proc() {
 		error.printf(.MANAGER_ALREADY_INITIALIZED, "initializing rigidbody manager")
 		return
 	}
-	registry.init_registry(&rigidbody_manager.rigidbody_registry, _free_rigidbody)
+	registry.init_registry(&rigidbody_manager.registry, _free_rigidbody)
 	rigidbody_manager.initialized = true
 }
 
@@ -53,17 +53,17 @@ destroy_rigidbody_manager :: proc() {
 		error.printf(.DESTROYING_UNINITIALIZED_MANAGER, "destroying rigidbody manager")
 		return
 	}
-	registry.destroy_registry(&rigidbody_manager.rigidbody_registry)
+	registry.destroy_registry(&rigidbody_manager.registry)
 	rigidbody_manager.initialized = false
 }
 
-create_rigidbody :: proc(entity_id: entity.Id, bodydef: b3.BodyDef) {
+rigidbody_create :: proc(entity_id: entity.Id, bodydef: b3.BodyDef) {
 	assert(rigidbody_manager.initialized, "create_rigidbody: rigidbody_manager not initialized, call init_rigid_body_manager")
 	rigidbody: RigidBody
 	rigidbody.internal_rigidbody_id = b3.nullBodyId
 	rigidbody.internal_bodydef = bodydef
 
-	err := registry.create_item(&rigidbody_manager.rigidbody_registry, entity_id, rigidbody)
+	err := registry.create_item(&rigidbody_manager.registry, entity_id, rigidbody)
 	error.must(err)
 }
 
@@ -72,7 +72,7 @@ create_rigidbody :: proc(entity_id: entity.Id, bodydef: b3.BodyDef) {
 // I think Ethan likes it as separate functions
 add_box_shape :: proc(entity_id: entity.Id, half_extents: [3]f32, density: f32, is_sensor: bool = false) {
 	assert(rigidbody_manager.initialized, "add_box_shape: rigidbody manager not initialized, call init_rigidbody_manager first")
-	rigidbody, found := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
+	rigidbody, found := registry.get_item(&rigidbody_manager.registry, entity_id)
 	error.must(found)
 
 	shape: CollisionShape = {
@@ -84,21 +84,21 @@ add_box_shape :: proc(entity_id: entity.Id, half_extents: [3]f32, density: f32, 
 	append(&rigidbody.shapes, shape)
 }
 
-destroy_rigidbody :: proc(entity_id: entity.Id) {
+rigidbody_destroy :: proc(entity_id: entity.Id) {
 	assert(rigidbody_manager.initialized, "destroy_rigidbody: rigidbody manager not initialized, call init_rigidbody_manager first")
-	rigidbody, found := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
+	rigidbody, found := registry.get_item(&rigidbody_manager.registry, entity_id)
 	error.must(found)
-	registry.destroy_item(&rigidbody_manager.rigidbody_registry, entity_id)
+	registry.destroy_item(&rigidbody_manager.registry, entity_id)
 }
 
 realize_rigidbody :: proc(entity_id: entity.Id, world_id: b3.WorldId) {
-	rigidbody, found := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
+	rigidbody, found := registry.get_item(&rigidbody_manager.registry, entity_id)
 	error.must(found)
 	_realize_rigidbody(rigidbody, world_id)
 }
 
 unrealize_rigidbody :: proc(entity_id: entity.Id) {
-	rigidbody, found := registry.get_item(&rigidbody_manager.rigidbody_registry, entity_id)
+	rigidbody, found := registry.get_item(&rigidbody_manager.registry, entity_id)
 	error.must(found)
 	_unrealize_rigidbody(rigidbody)
 }
@@ -175,7 +175,7 @@ rigidbody_from_mjson :: proc (entity_id: entity.Id, value: json.Value) -> error.
 			return .PARSE_ERROR
 	}
 
-	create_rigidbody(entity_id, bodydef)
+	rigidbody_create(entity_id, bodydef)
 
 	half_extent := mjson.vec3(obj["half_extent"]) or_return
 

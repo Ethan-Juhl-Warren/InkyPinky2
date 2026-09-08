@@ -2,6 +2,7 @@ package scene
 import "../entity"
 import "../registry"
 import "../error"
+import "../component"
 import "../file"
 import "core:strings"
 
@@ -11,71 +12,69 @@ import "core:strings"
 
 Id :: distinct u32
 
+@(private)
 SceneDescriptor :: struct {
 	name: string,
 	refrence: file.AssetRefrence,
 	id: Id
 }
 
+@(private)
 SceneManifest :: struct {
 	scenes_descriptors: [dynamic]SceneDescriptor,
 	scene_names: map[string]Id
 }
 
 @(private)
+Scene :: struct {
+	id: Id,
+	name: string,
+	next_entity_id: u32,
+	entities: [dynamic]entity.Id,
+}
+
+@(private)
 SceneManager :: struct {
-	entity_names: map[string]entity.Id,
-	entity_registry: registry.Registry(string, entity.Id),
-	scene_id: Id,
-	next_entity_id: Id,
+	active_scene: ^Scene,
+	next_scene: ^Scene,
+	scene_manifest: SceneManifest,
 	initialized: bool
 }
 
 init_scene_manager :: proc() {
-	scene_manager.entity_names = make(map[string]entity.Id)
-	registry.init_registry(&scene_manager.entity_registry, _free_entity)
-	scene_manager.scene_id = 1
-	scene_manager.next_entity_id = 0
+	scene_manager.active_scene = new(Scene)
+	scene_manager.next_scene = new(Scene)
+	_init_scene(scene_manager.active_scene)
+	_init_scene(scene_manager.next_scene)
+	_init_manifest(&scene_manager.scene_manifest)
+
 	scene_manager.initialized = true
 }
 
 destroy_scene_manager :: proc() {
-	delete(scene_manager.entity_names)
-	registry.destroy_registry(&scene_manager.entity_registry)
-	scene_manager.scene_id = 0
-	scene_manager.next_entity_id = 0
+	_destroy_scene(scene_manager.active_scene)
+	_destroy_scene(scene_manager.next_scene)
+	scene_manager.active_scene = nil
+	scene_manager.next_scene = nil
+	_destroy_manifest(&scene_manager.scene_manifest)
 	scene_manager.initialized = false
 }
 
-create_entity :: proc(name: string) -> entity.Id {
+create_entity :: proc() -> entity.Id {
 	assert(scene_manager.initialized, "create_entity: scene manager not initialized, call init_scene_manager first")
-	_, found := scene_manager.entity_names[name]
-	if found {
-		error.throw(.NAME_EXISTS)
-	}
-	name := strings.clone(name)
 
-	scene_manager.next_entity_id += 1
-	id := entity.make_id(cast(u32)scene_manager.scene_id, cast(u32)scene_manager.next_entity_id)
-	err := registry.create_item(&scene_manager.entity_registry, id, name)
-	error.must(err)
-	scene_manager.entity_names[name] = id
+	scene_manager.active_scene.next_entity_id += 1 
+	id := entity.make_id(u32(scene_manager.active_scene.id), u32(scene_manager.active_scene.next_entity_id))
+	append(&scene_manager.active_scene.entities, id)
 	return id
 }
 
-add_entity :: proc(name: string, scene_id: Id) -> entity.Id {
-	assert(scene_manager.initialized, "add_entity: scene manager not initialized, call init_scene_manager first")
-	_, found := scene_manager.entity_names[name]
-	if found {
-		error.throw(.NAME_EXISTS)
-	}
-	name := strings.clone(name)
+preload_entity :: proc() -> entity.Id {
+	assert(scene_manager.initialized, "preload_entity: scene manager not initialized, call init_scene_manager first")
 
-	scene_manager.next_entity_id += 1
-	id := entity.make_id(cast(u32)scene_id, cast(u32)scene_manager.next_entity_id)
-	err := registry.create_item(&scene_manager.entity_registry, id, name)
-	error.must(err)
-	scene_manager.entity_names[name] = id
+	scene_manager.next_scene.next_entity_id += 1
+	id := entity.make_id(u32(scene_manager.next_scene.id), u32(scene_manager.next_scene.next_entity_id))
+	append(&scene_manager.next_scene.entities, id)
 	return id
 }
 
@@ -83,11 +82,8 @@ add_entity :: proc(name: string, scene_id: Id) -> entity.Id {
 destroy_entity_by_id :: proc(entity_id: entity.Id) {
 	assert(scene_manager.initialized, "destroy_entity_by_id: scene manager not initialized, call init_scene_manager first")
 
-	entity, found := registry.get_item(&scene_manager.entity_registry, entity_id)
-	error.must(found)
-
-	delete_key(&scene_manager.entity_names, entity^)
-	registry.destroy_item(&scene_manager.entity_registry, entity_id)
+	unordered_remove(&scene_manager.active_scene.entities, entity_id)
+	component.release_entity_components(entity_id)
 }
 
 destroy_entity_by_name :: proc(name: string) {
@@ -115,11 +111,33 @@ get_entity_name :: proc(entity_id: entity.Id) -> string {
 	return entity_name^
 }
 
-/*
- * TODO IMPORTANT Must add cleanup for material and script references once they are concrete
-*/
 @(private)
-_free_entity :: proc(entity_name: ^string) {
-	delete(entity_name^)
+_init_manifest :: proc(scene_manifest: ^SceneManifest) {
+	scene_manifest.scene_names = make(map[string]Id)
+	scene_manifest.scenes_descriptors = make([dynamic]SceneDescriptor)
+}
+
+@(private)
+_destroy_manifest :: proc(scene_manifest: ^SceneManifest) {
+	delete(scene_manifest.scene_names)
+	delete(scene_manifest.scenes_descriptors)
+}
+
+@(private)
+_init_scene :: proc(scene: ^Scene) {
+	if scene == nil {
+		return
+	}
+	scene.entities = make([dynamic]entity.Id)
+	scene.next_entity_id = 0
+}
+
+@(private)
+_destroy_scene :: proc(scene: ^Scene) {
+	if scene == nil {
+		return
+	}
+	delete(scene.entities)
+	free(scene)
 }
 

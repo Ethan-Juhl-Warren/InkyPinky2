@@ -104,7 +104,6 @@ registry_len :: proc(registry: ^Registry($T, $K)) -> int where intrinsics.type_i
 	return len(registry.items)
 }
 
-
 registry_shrink :: proc(registry: ^Registry($T, $K)) where intrinsics.type_is_integer(K) {
 	assert(registry != nil, "registry_shrink: cannot shrink null registry")
 	shrink(&registry.items)

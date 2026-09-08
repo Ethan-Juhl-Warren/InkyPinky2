@@ -9,7 +9,7 @@ import "../error"
 
 @(private)
 NameManager :: struct {
-    name_registry: registry.Registry(string, entity.Id),
+    registry: registry.Registry(string, entity.Id),
     initialized: bool
 }
 
@@ -27,7 +27,7 @@ init_name_manager :: proc() {
 		error.printf(.MANAGER_ALREADY_INITIALIZED, "initializing name manager")
 		return
 	}
-	registry.init_registry(&name_manager.name_registry, _free_name)
+	registry.init_registry(&name_manager.registry, _free_name)
 	name_manager.initialized = true
 }
 
@@ -44,7 +44,7 @@ destroy_name_manager :: proc() {
 		error.printf(.DESTROYING_UNINITIALIZED_MANAGER, "destroying name manager")
 		return
 	}
-	registry.destroy_registry(&name_manager.name_registry)
+	registry.destroy_registry(&name_manager.registry)
 	name_manager.initialized = false
 }
 
@@ -62,7 +62,7 @@ If the supplied entity_id is invalid the system will panic
 name_create :: proc(entity_id: entity.Id, name: string) {
 	assert(name_manager.initialized, "name_create: name manager not initialized, call init_name_manager first")
 
-	err := registry.create_item(&name_manager.name_registry, entity_id, strings.clone(name))
+	err := registry.create_item(&name_manager.registry, entity_id, strings.clone(name))
 	error.must(err)
 }
 
@@ -78,9 +78,9 @@ If the supplied entity_id is invalid, or has no corresponding Name component the
 */
 name_destroy :: proc(entity_id: entity.Id) {
 	assert(name_manager.initialized, "name_destroy: name manager not initialized, call init_name_manager first")
-	name, present := registry.get_item(&name_manager.name_registry, entity_id)
+	name, present := registry.get_item(&name_manager.registry, entity_id)
 	error.must(present)
-	registry.destroy_item(&name_manager.name_registry, entity_id)
+	registry.destroy_item(&name_manager.registry, entity_id)
 }
 
 /*
@@ -94,7 +94,7 @@ Outputs:
 */
 get_name :: proc(entity_id: entity.Id) -> string {
     assert(name_manager.initialized, "get_name: name manager not initialized, call init_name_manager first")
-    name, found := registry.get_item(&name_manager.name_registry, entity_id)
+    name, found := registry.get_item(&name_manager.registry, entity_id)
     error.must(found)
     return name^
 }
@@ -110,8 +110,8 @@ Outputs:
 */
 name_get_entities :: proc(name: string, allocator: mem.Allocator = context.allocator) -> [dynamic]entity.Id {
     assert(name_manager.initialized, "name_get_entities: name manager not initialized, call init_name_manager first")
-    names := registry.registry_item_slice(&name_manager.name_registry)
-	ids := registry.registry_id_slice(&name_manager.name_registry)
+    names := registry.registry_item_slice(&name_manager.registry)
+	ids := registry.registry_id_slice(&name_manager.registry)
     ent := make([dynamic]entity.Id, 0, 10, allocator)
     for n, i in names {
         if n == name {

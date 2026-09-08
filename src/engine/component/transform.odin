@@ -23,7 +23,7 @@ Transform :: struct {
 
 @(private)
 TransformManager :: struct {
-	transform_registry: registry.Registry(Transform, entity.Id),
+	registry: registry.Registry(Transform, entity.Id),
 	initialized: bool
 }
 
@@ -41,7 +41,7 @@ init_transform_manager :: proc() {
 		error.printf(.MANAGER_ALREADY_INITIALIZED, "initializing transform manager")
 		return
 	}
-	registry.init_registry(&transform_manager.transform_registry, nil)
+	registry.init_registry(&transform_manager.registry, nil)
 	transform_manager.initialized = true
 }
 
@@ -58,7 +58,7 @@ destroy_transform_manager :: proc() {
 		error.printf(.DESTROYING_UNINITIALIZED_MANAGER, "destroying transform manager")
 		return
 	}
-	registry.destroy_registry(&transform_manager.transform_registry)
+	registry.destroy_registry(&transform_manager.registry)
 	transform_manager.initialized = false
 }
 
@@ -82,7 +82,7 @@ transform_create :: proc(entity_id: entity.Id, position: [3]f32 = {0,0,0}, scale
 	transform.rotation = linalg.quaternion_normalize0(rotation)
 	transform.scale = scale
 
-	err := registry.create_item(&transform_manager.transform_registry, entity_id, transform)
+	err := registry.create_item(&transform_manager.registry, entity_id, transform)
 	error.must(err)
 }
 
@@ -98,9 +98,9 @@ If the supplied entity_id is invalid, or has no corresponding Transform componen
 */
 transform_destroy :: proc(entity_id: entity.Id) {
 	assert(transform_manager.initialized, "transform_destroy: transform manager not initialized, call init_transform_manager first")
-	transform, present := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, present := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(present)
-	registry.destroy_item(&transform_manager.transform_registry, entity_id)
+	registry.destroy_item(&transform_manager.registry, entity_id)
 }
 
 /*
@@ -118,7 +118,7 @@ If the supplied entity_id is invalid, or has no corresponding Transform componen
 */
 transform_get_position :: proc(entity_id: entity.Id) -> [3]f32 {
 	assert(transform_manager.initialized, "transform_get_position: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	return transform.position
 }
@@ -138,7 +138,7 @@ If the supplied entity_id is invalid, or has no corresponding Transform componen
 */
 transform_get_scale :: proc(entity_id: entity.Id) -> [3]f32 {
 	assert(transform_manager.initialized, "transform_get_scale: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	return transform.scale
 }
@@ -158,7 +158,7 @@ If the supplied entity_id is invalid, or has no corresponding Transform componen
 */
 transform_get_rotation :: proc(entity_id: entity.Id) -> quaternion128 {
 	assert(transform_manager.initialized, "transform_get_rotation: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	return transform.rotation
 }
@@ -180,7 +180,7 @@ If the supplied entity_id is invalid, or has no corresponding Transform componen
 */
 transform_get_rotation_pitch_yaw_roll :: proc(entity_id: entity.Id) -> (pitch, yaw, roll: f32) {
 	assert(transform_manager.initialized, "transform_get_rotation_pitch_yaw_roll: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	return linalg.pitch_yaw_roll_from_quaternion(transform.rotation)
 }
@@ -201,7 +201,7 @@ If the supplied entity_id is invalid, or has no corresponding Transform componen
 */
 transform_get_rotation_angle_axis :: proc(entity_id: entity.Id) -> (angle: f32, axis: [3]f32) {
 	assert(transform_manager.initialized, "transform_get_rotation_angle_axis: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	return linalg.angle_axis_from_quaternion(transform.rotation)
 }
@@ -218,7 +218,7 @@ If the supplied entity_id is invalid, or has no corresponding Transform componen
 */
 transform_set_position :: proc(entity_id: entity.Id, position: [3]f32) {
 	assert(transform_manager.initialized, "transform_set_position: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	transform.position = position
 }
@@ -235,7 +235,7 @@ If the supplied entity_id is invalid, or has no corresponding Transform componen
 */
 transform_set_scale :: proc(entity_id: entity.Id, scale: [3]f32) {
 	assert(transform_manager.initialized, "transform_set_scale: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	transform.scale = scale
 }
@@ -255,7 +255,7 @@ Any rotation supplied is normalized
 */
 transform_set_rotation :: proc(entity_id: entity.Id, rotation: quaternion128) {
 	assert(transform_manager.initialized, "transform_set_rotation: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	transform.rotation = linalg.quaternion_normalize0(rotation)
 }
@@ -275,7 +275,7 @@ If the supplied entity_id is invalid, or has no corresponding Transform componen
 */
 transform_set_rotation_pitch_yaw_roll :: proc(entity_id: entity.Id, pitch, yaw, roll: f32) {
 	assert(transform_manager.initialized, "transform_set_rotation_pitch_yaw_roll: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	transform.rotation = linalg.quaternion_from_pitch_yaw_roll(pitch, yaw, roll)
 }
@@ -294,7 +294,7 @@ If the supplied entity_id is invalid, or has no corresponding Transform componen
 */
 transform_set_rotation_angle_axis :: proc(entity_id: entity.Id, angle: f32, axis: [3]f32) {
 	assert(transform_manager.initialized, "transform_set_rotation_angle_axis: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	transform.rotation = linalg.normalize0(linalg.quaternion_angle_axis(angle, axis))
 }
@@ -315,7 +315,7 @@ but lacks a transform component this will panic
 */
 transform_get_transform :: proc(entity_id: entity.Id) -> Transform {
 	assert(transform_manager.initialized, "transform_get_transform: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	return transform^
 }
@@ -334,7 +334,7 @@ but lacks a transform component this will panic
 */
 transform_set_transform :: proc(entity_id: entity.Id, #by_ptr transform: Transform) {
 	assert(transform_manager.initialized, "transform_set_transform: transform manager not initialized, call init_transform_manager first")
-	trn, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	trn, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	trn.position = transform.position
 	trn.rotation = linalg.quaternion_normalize0(transform.rotation)
@@ -356,7 +356,7 @@ If the supplied entity_id is invalid it will panic
 */
 transform_exists :: proc(entity_id: entity.Id) -> bool {
 	assert(transform_manager.initialized, "transform_set_transform: transform manager not initialized, call init_transform_manager first")
-	_, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	_, found := registry.get_item(&transform_manager.registry, entity_id)
 	if found == .ID_INVALID {
 		error.throw(.ID_INVALID)
 	}
@@ -378,7 +378,7 @@ If the supplied entity_id is invalid, or has no corresponding Transform the syst
 */
 transform_get_up_local :: proc(entity_id: entity.Id) -> [3]f32 {
 	assert(transform_manager.initialized, "transform_get_up_local: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	return linalg.quaternion_mul_vector3(transform.rotation, GLOBAL_UP)
 }
@@ -398,7 +398,7 @@ If the supplied entity_id is invalid, or has no corresponding Transform the syst
 */
 transform_get_right_local :: proc(entity_id: entity.Id) -> [3]f32 {
 	assert(transform_manager.initialized, "transform_get_right_local: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	return linalg.quaternion_mul_vector3(transform.rotation, GLOBAL_RIGHT)
 }
@@ -418,7 +418,7 @@ If the supplied entity_id is invalid, or has no corresponding Transform the syst
 */
 transform_get_forward_local :: proc(entity_id: entity.Id) -> [3]f32 {
 	assert(transform_manager.initialized, "transform_get_forward_local: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	return linalg.quaternion_mul_vector3(transform.rotation, GLOBAL_FORWARD)
 }
@@ -441,7 +441,7 @@ If the supplied entity_id is invalid, or has no corresponding Transform the syst
 */
 transform_get_orientation_local :: proc(entity_id: entity.Id) -> (up: [3]f32, right: [3]f32, forward: [3]f32) {
 	assert(transform_manager.initialized, "transform_get_orientation_local: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	up = linalg.quaternion_mul_vector3(transform.rotation, GLOBAL_UP)
 	right = linalg.quaternion_mul_vector3(transform.rotation, GLOBAL_RIGHT)
@@ -462,7 +462,7 @@ If the supplied entity_id is invalid, or has no corresponding Transform the syst
 */
 transform_translate :: proc(entity_id: entity.Id, delta: [3]f32) {
 	assert(transform_manager.initialized, "transform_translate: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	transform.position += delta
 }
@@ -480,7 +480,7 @@ If the supplied entity_id is invalid, or has no corresponding Transform the syst
 */
 transform_translate_local :: proc(entity_id: entity.Id, delta: [3]f32) {
 	assert(transform_manager.initialized, "transform_translate_local: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	transform.position += linalg.quaternion_mul_vector3(transform.rotation, [3]f32 {delta.x, delta.y, -delta.z})
 }
@@ -500,7 +500,7 @@ If the supplied entity_id is invalid, or has no corresponding Transform the syst
 */
 transform_get_matrix :: proc(entity_id: entity.Id) -> matrix[4,4]f32 {
 	assert(transform_manager.initialized, "transform_get_matrix: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	return linalg.matrix4_from_trs_f32(transform.position, transform.rotation, transform.scale)
 }
@@ -520,7 +520,7 @@ The composed result is normalized
 */
 transform_rotate :: proc(entity_id: entity.Id, rotation: quaternion128) {
 	assert(transform_manager.initialized, "transform_rotate: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	transform.rotation = linalg.quaternion_normalize0(rotation * transform.rotation)
 }
@@ -540,7 +540,7 @@ The composed result is normalized
 */
 transform_rotate_local :: proc(entity_id: entity.Id, rotation: quaternion128) {
 	assert(transform_manager.initialized, "transform_rotate_local: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	transform.rotation = linalg.quaternion_normalize0(transform.rotation * rotation)
 }
@@ -562,7 +562,7 @@ The composed result is normalized
 */
 transform_rotate_angle_axis :: proc(entity_id: entity.Id, angle: f32, axis: [3]f32) {
 	assert(transform_manager.initialized, "transform_rotate_angle_axis: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	rotation_q := linalg.quaternion_angle_axis(angle, axis)
 	transform.rotation = linalg.quaternion_normalize0(rotation_q * transform.rotation)
@@ -587,7 +587,7 @@ The composed result is normalized
 */
 transform_rotate_pitch_yaw_roll :: proc(entity_id: entity.Id, pitch: f32, yaw: f32, roll: f32) {
 	assert(transform_manager.initialized, "transform_rotate_yaw_pitch_roll: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	rotation_q := linalg.quaternion_from_pitch_yaw_roll_f32(pitch, yaw, roll)
 	transform.rotation = linalg.quaternion_normalize0(rotation_q * transform.rotation)
@@ -613,7 +613,7 @@ The composed result is normalized
 */
 transform_look_at :: proc(entity_id: entity.Id, target: [3]f32) {
 	assert(transform_manager.initialized, "transform_look_at: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	direction := target - transform.position
 	if linalg.dot(direction, direction) == 0 {
@@ -640,7 +640,7 @@ The composed result is normalized
 */
 transform_look_at_leveled :: proc(entity_id: entity.Id, target: [3]f32) {
 	assert(transform_manager.initialized, "transform_look_at_leveled: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	direction := target - transform.position
 	right := linalg.cross(GLOBAL_UP, direction)
@@ -667,7 +667,7 @@ t is not clamped, values outside 0..1 extrapolate
 */
 transform_lerp_position :: proc(entity_id: entity.Id, target: [3]f32, t: f32) {
 	assert(transform_manager.initialized, "transform_lerp_position: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	transform.position += (target - transform.position) * t
 }
@@ -688,7 +688,7 @@ t is not clamped, values outside 0..1 extrapolate
 */
 transform_lerp_scale :: proc(entity_id: entity.Id, target: [3]f32, t: f32) {
 	assert(transform_manager.initialized, "transform_lerp_scale: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	transform.scale += (target - transform.scale) * t
 }
@@ -712,7 +712,7 @@ The result is normalized
 */
 transform_slerp_rotation :: proc(entity_id: entity.Id, target: quaternion128, t: f32) {
 	assert(transform_manager.initialized, "transform_slerp_rotation: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	transform.rotation = linalg.quaternion_normalize0(linalg.quaternion_slerp(transform.rotation, target, t))
 }
@@ -737,7 +737,7 @@ The rotation is normalized
 */
 transform_interpolate :: proc(entity_id: entity.Id, #by_ptr target: Transform, t: f32) {
 	assert(transform_manager.initialized, "transform_interpolate: transform manager not initialized, call init_transform_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	transform.position += (target.position - transform.position) * t
 	transform.scale += (target.scale - transform.scale) * t
@@ -760,7 +760,7 @@ If the supplied entity_id is invalid, or has no corresponding Camera component t
 @(private)
 _transform_get_view_matrix :: proc(entity_id: entity.Id) -> matrix[4,4]f32 {
 	assert(camera_manager.initialized, "camera_get_view_matrix: transform manager not initialized, call init_camera_manager first")
-	transform, found := registry.get_item(&transform_manager.transform_registry, entity_id)
+	transform, found := registry.get_item(&transform_manager.registry, entity_id)
 	error.must(found)
 	up := linalg.quaternion_mul_vector3(transform.rotation, GLOBAL_UP)
 	forward :=  linalg.quaternion_mul_vector3(transform.rotation, GLOBAL_FORWARD)
